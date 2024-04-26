@@ -102,7 +102,7 @@ with st.sidebar:
     
     ---
     
-    [Source code and contributors here.](https://github.com/donbowen/portfolio-frontier-streamlit-dashboard)
+    [Source code and contributors here.](https://github.com/alz425/loan_default_pipeline)
     '''
 
 #############################################
