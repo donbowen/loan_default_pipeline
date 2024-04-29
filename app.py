@@ -132,5 +132,5 @@ hi
 # pipe.set_param() # replace the vars eith the vars they want)
 # pipe.set_param() # replace the model with the model they choose
 
-print(pipe) # why isn't thisprinting in streamlit
-pipe
+set_config(display='diagram')
+st.write(pipe) # why isn't thisprinting in streamlit

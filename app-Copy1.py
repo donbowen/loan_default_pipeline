@@ -1,52 +1,93 @@
+# I'm putting all code we've seen before here
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-import plotly.io as pio
-import streamlit as st
+# from df_after_transform import df_after_transform
+from sklearn import set_config
+from sklearn.calibration import CalibrationDisplay
+from sklearn.compose import (
+    ColumnTransformer,
+    make_column_selector,
+    make_column_transformer,
+)
+from sklearn.decomposition import PCA
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.feature_selection import (
+    RFECV,
+    SelectFromModel,
+    SelectKBest,
+    SequentialFeatureSelector,
+    f_classif,
+)
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import Lasso, LassoCV, LogisticRegression
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    DetCurveDisplay,
+    PrecisionRecallDisplay,
+    RocCurveDisplay,
+    classification_report,
+    make_scorer,
+)
+from sklearn.model_selection import (
+    GridSearchCV,
+    KFold,
+    cross_validate,
+    train_test_split,
+)
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import (
+    OneHotEncoder,
+    OrdinalEncoder,
+    PolynomialFeatures,
+    StandardScaler,
+)
+from sklearn.svm import LinearSVC
 
-from update_data_cache import get_data
+set_config(display="diagram")  # display='text' is the default
 
-from pypfopt.efficient_frontier import EfficientFrontier
-
-pio.renderers.default='browser' # use when doing dev in Spyder (to show figs)
-
-# Page config
-st.set_page_config(
-    "Portfolio Opt by WSB, Ported to Streamlit by Don Bowen",
-    "📊",
-    initial_sidebar_state="expanded",
-    layout="wide",
+pd.set_option(
+    "display.max_colwidth", 1000, "display.max_rows", 50, "display.max_columns", None
 )
 
-"""
-# CAPM Portfolio Optimization with Risk Aversion Adjustment
+# load data
 
-iuehrfiuherfiu
+<<<<<<< HEAD
+loans = pd.read_csv("inputs/2013_subsample.zip")
+=======
+iuehrfiuherfiu Mason Testing, Rebecca Zamsky
+>>>>>>> 6fcffaf93ec77bc461c467e18f656880223221e7
 
-iuehrfiuehr
+# drop some bad columns here, or in the pipeline
 
-"""
+# loans = loans.drop(
+#     ["member_id", "id", "desc", "earliest_cr_line", "emp_title", "issue_d"], axis=1
+# )
 
-#############################################
-# start: sidebar
-#############################################
+# create holdout sample
 
-with st.sidebar:
+y = loans.loan_status == "Charged Off"
+y.value_counts()
+loans = loans.drop("loan_status", axis=1)
 
-    # % chance lose, $ lose, % chance win, $win, CARA formula e, CARA formula V
-    qs ={1 :[.50,0,.50,10   ],
-         2 :[.50,0,.50,1000 ],
-         3 :[.90,0,.10,10   ],
-         4 :[.90,0,.10,1000 ],
-         5 :[.25,0,.75,100  ],
-         6 :[.75,0,.25,100  ]}    
+X_train, X_test, y_train, y_test = train_test_split(
+    loans, y, stratify=y, test_size=0.2, random_state=0
+)  # (stratify will make sure that test/train both have equal fractions of outcome)
 
+# define the profit function
+
+
+def custom_prof_score(y, y_pred, roa=0.02, haircut=0.20):
     """
-    ## Risk aversion assessment
-
-    ### Part 1: How much would you pay to enter the following lotteries?
+    Firm profit is this times the average loan size. We can
+    ignore that term for the purposes of maximization. 
     """
+<<<<<<< HEAD
+    TN = sum((y_pred == 0) & (y == 0))  # count loans made and actually paid back
+    FN = sum((y_pred == 0) & (y == 1))  # count loans made and actually defaulting
+    return TN * roa - FN * haircut
+=======
     ans = {}
     for i in range(1,len(qs)+1):
         rn = qs[i][0]*qs[i][1] + qs[i][2]*qs[i][3]
@@ -104,7 +145,7 @@ with st.sidebar:
     
     ---
     
-    [Source code and contributors here.](https://github.com/donbowen/portfolio-frontier-streamlit-dashboard)
+    [Source code and contributors here.](https://github.com/alz425/loan_default_pipeline)
     '''
 
 #############################################
@@ -317,14 +358,56 @@ fig5 = go.Figure(data=fig1.data + fig2.data + fig3.data + fig4.data, layout = fi
 fig5.update_layout(height=600) 
 
 st.plotly_chart(fig5,use_container_width=True)
+>>>>>>> 6fcffaf93ec77bc461c467e18f656880223221e7
 
 
+# so that we can use the fcn in sklearn, "make a scorer" out of that function
+
+prof_score = make_scorer(custom_prof_score)
+
+dont_use = ["member_id", "id", "desc", "earliest_cr_line", "emp_title", "issue_d","title"]
+
+# list of all num vars:
+num_pipe_features = X_train.select_dtypes(include="number").columns
+
+# exclude any bad features:
+num_pipe_features = [e for e in num_pipe_features if e not in dont_use]
+
+cat_pipe_features = ["grade"]  # all: X_train.select_dtypes(include='object').columns
+
+##################################################
+
+numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
+
+cat_pipe = make_pipeline(OneHotEncoder())
+
+# didn't use make_column_transformer; wanted to name steps
+preproc_pipe = make_column_transformer(
+    (numer_pipe, num_pipe_features), 
+    (cat_pipe, cat_pipe_features), 
+    remainder="drop",
+)
+
+# I used "Pipeline" not "make_pipeline" bc I wanted to name the steps
+pipe = Pipeline([('columntransformer',preproc_pipe),
+                 ('feature_create','passthrough'), 
+                 ('feature_select','passthrough'), 
+                 ('clf', LogisticRegression(class_weight='balanced'))
+                ])
 '''
-- The chart is interactive: zoom, hover to see tickers
-- Expected returns and volatility are annualized measures
-- The calculation of expected returns uses CAPM, but will be inaccuracute on a forward looking basis
-- Blue line is the efficient frontier and the blue start is the optimal "all-equity" portfolio
-- Red line is the "capital market line" representing a portfolio that combines the risk free asset and the tangency portfolio
-- The red star is the optimal portfolio combining the risk free asset and the tangency portfolio, based on your risk aversion parameter and choice of maximum allowable leverage
-- If your leverage is more than 1 and your risk aversion low enough, the optimal portfolio might involve borrowing money to invest in equities; if so, the red star will be to the right of the blue star
+hi
 '''
+
+##################################################
+# begin : user choices
+
+# num_pipe_features =  .... st.menu(list of choices or something)
+
+# end: user choices
+##################################################
+
+# pipe.set_param() # replace the vars eith the vars they want)
+# pipe.set_param() # replace the model with the model they choose
+
+print(pipe) # why isn't thisprinting in streamlit
+pipe
