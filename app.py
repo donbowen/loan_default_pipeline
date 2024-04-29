@@ -45,6 +45,8 @@ from sklearn.preprocessing import (
 )
 from sklearn.svm import LinearSVC
 
+import streamlit as st
+
 set_config(display="diagram")  # display='text' is the default
 
 pd.set_option(
