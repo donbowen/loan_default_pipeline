@@ -134,5 +134,20 @@ hi
 # pipe.set_param() # replace the vars eith the vars they want)
 # pipe.set_param() # replace the model with the model they choose
 
+# Setting the configuration to 'diagram' mode for visualization
 set_config(display='diagram')
-st.write(pipe) # why isn't thisprinting in streamlit
+
+# Plotting the pipeline
+st.write(pipe)
+
+# Saving the pipeline diagram to a file
+pipeline_diagram = "pipeline_diagram.png"
+pipeline_image = pipe.named_steps["columntransformer"].named_transformers_["pipeline-1"] \
+    .named_steps["standardscaler"].named_steps["simpleimputer"].named_transformers_["mean"] \
+    .named_steps["imputer"].transform(X_train)
+plt.figure(figsize=(20, 10))
+plot_tree(pipeline_image, filled=True, feature_names=X_train.columns, class_names=["0", "1"])
+plt.savefig(pipeline_diagram)
+
+# Displaying the pipeline diagram
+st.image(pipeline_diagram, caption='Pipeline Diagram') # why isn't thisprinting in streamlit
