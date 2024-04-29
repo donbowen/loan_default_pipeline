@@ -106,6 +106,7 @@ numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
 
 cat_pipe = make_pipeline(OneHotEncoder())
 
+
 # didn't use make_column_transformer; wanted to name steps
 preproc_pipe = make_column_transformer(
     (numer_pipe, num_pipe_features), 
@@ -134,8 +135,6 @@ hi
 # pipe.set_param() # replace the vars eith the vars they want)
 # pipe.set_param() # replace the model with the model they choose
 
-# Setting the configuration to 'diagram' mode for visualization
-set_config(display='diagram')
 pipe
 
  # why isn't thisprinting in streamlit
