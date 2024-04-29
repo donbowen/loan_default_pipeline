@@ -142,11 +142,13 @@ st.write(pipe)
 
 # Saving the pipeline diagram to a file
 pipeline_diagram = "pipeline_diagram.png"
-pipeline_image = pipe.named_steps["columntransformer"].named_transformers_["pipeline-1"] \
-    .named_steps["standardscaler"].named_steps["simpleimputer"].named_transformers_["mean"] \
-    .named_steps["imputer"].transform(X_train)
+
+# Fit the pipeline on your data
+pipe.fit(X_train)
+
+# Plotting the decision tree
 plt.figure(figsize=(20, 10))
-plot_tree(pipeline_image, filled=True, feature_names=X_train.columns, class_names=["0", "1"])
+plot_tree(pipe.named_steps['clf'], filled=True, feature_names=X_train.columns, class_names=["0", "1"])
 plt.savefig(pipeline_diagram)
 
 # Displaying the pipeline diagram
