@@ -44,8 +44,9 @@ from sklearn.preprocessing import (
     StandardScaler,
 )
 from sklearn.svm import LinearSVC
-
 import streamlit as st
+from sklearn import tree
+import graphviz
 
 set_config(display="diagram")  # display='text' is the default
 
@@ -135,6 +136,7 @@ hi
 # pipe.set_param() # replace the vars eith the vars they want)
 # pipe.set_param() # replace the model with the model they choose
 
-st.write(pipe)
+
+pipe
 
  # why isn't thisprinting in streamlit
