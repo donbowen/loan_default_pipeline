@@ -136,20 +136,6 @@ hi
 
 # Setting the configuration to 'diagram' mode for visualization
 set_config(display='diagram')
+pipe
 
-# Plotting the pipeline
-st.write(pipe)
-
-# Saving the pipeline diagram to a file
-pipeline_diagram = "pipeline_diagram.png"
-
-# Fit the pipeline on your data
-pipe.fit(X_train)
-
-# Plotting the decision tree
-plt.figure(figsize=(20, 10))
-plot_tree(pipe.named_steps['clf'], filled=True, feature_names=X_train.columns, class_names=["0", "1"])
-plt.savefig(pipeline_diagram)
-
-# Displaying the pipeline diagram
-st.image(pipeline_diagram, caption='Pipeline Diagram') # why isn't thisprinting in streamlit
+ # why isn't thisprinting in streamlit
