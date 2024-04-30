@@ -12,7 +12,7 @@ from sklearn.compose import (
     make_column_transformer,
 )
 from sklearn.decomposition import PCA
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.feature_selection import (
     RFECV,
     SelectFromModel,
@@ -149,7 +149,7 @@ selected_num_features = st.multiselect("Select numerical features:", num_pipe_fe
 selected_cat_features = st.multiselect("Select categorical features:", cat_pipe_features)
     
 # Dropdown menu to choose the model
-model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest'])
+model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge'])
 st.write("Selected Model:", model_name)
 
 # Create the pipeline based on the selected model and features
