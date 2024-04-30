@@ -223,6 +223,10 @@ if feature_create_method == 'PolynomialFeatures':
     degree = st.number_input("Enter the degree for PolynomialFeatures", min_value=1, max_value=5, value=2)
 else:
     degree = None
+
+# Dropdown menu to choose the cross-validation strategy
+cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+
 # Create the pipeline based on the selected model and features
 pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
 
