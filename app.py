@@ -35,6 +35,7 @@ from sklearn.model_selection import (
     KFold,
     cross_validate,
     train_test_split,
+    cross_val_score,
 )
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import (
@@ -224,7 +225,9 @@ if feature_create_method == 'PolynomialFeatures':
 else:
     degree = None
 
-
+# Dropdown menu to choose the cross-validation strategy
+cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+    
 # Create the pipeline based on the selected model and features
 pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
 
@@ -236,12 +239,14 @@ pipe = create_pipeline(model_name, feature_select_method, feature_create_method,
 
 pipe
 
+# Perform cross-validation with custom scoring and additional metrics
+scoring = {'score': prof_score}
+cv_results = cross_validate(pipe, loans, y, cv=cv, scoring=scoring, return_train_score=True)
+
+st.write("Mean Test Score:", cv_results['test_score'].mean())
+st.write("Standard Deviation Test Score:", cv_results['test_score'].std())
+st.write("Standard Deviation Fit Time:", cv_results['fit_time'].std())
+st.write("Mean Score Time:", cv_results['score_time'].mean())
  # why isn't thisprinting in streamlit
 
-# Fit the pipeline to the training data
-pipe.fit(X_train, y_train)
 
-# Evaluate the model performance
-score = pipe.score(X_test, y_test)
-
-st.write("Model Performance (Accuracy):", score)
