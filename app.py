@@ -224,8 +224,6 @@ if feature_create_method == 'PolynomialFeatures':
 else:
     degree = None
 
-# Dropdown menu to choose the cross-validation strategy
-cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
 
 # Create the pipeline based on the selected model and features
 pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
@@ -239,3 +237,11 @@ pipe = create_pipeline(model_name, feature_select_method, feature_create_method,
 pipe
 
  # why isn't thisprinting in streamlit
+
+# Fit the pipeline to the training data
+pipe.fit(X_train, y_train)
+
+# Evaluate the model performance
+score = pipe.score(X_test, y_test)
+
+st.write("Model Performance (Accuracy):", score)
