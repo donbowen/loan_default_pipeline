@@ -99,7 +99,7 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 
 ##################################################
 # Function to create a pipeline based on user-selected model and features
-def create_pipeline(model_name, num_pipe_features, cat_pipe_features):
+def create_pipeline(model_name, feature_select, num_pipe_features, cat_pipe_features):
     if model_name == 'Logistic Regression':
         clf = LogisticRegression(class_weight='balanced')
     elif model_name == 'Random Forest':
@@ -109,6 +109,8 @@ def create_pipeline(model_name, num_pipe_features, cat_pipe_features):
         clf = Lasso(alpha = 0.3)
     elif model_name == 'Ridge':
         clf = Ridge()
+    elif model_name == 'Linear SVC':
+        clf = LinearSVC(class_weight='balanced')
     # Preprocessing pipelines for numerical and categorical features
     numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
 
@@ -122,10 +124,48 @@ def create_pipeline(model_name, num_pipe_features, cat_pipe_features):
     remainder="drop",
     )
 
+    # Feature selection transformer based on user choice
+    if feature_select == 'passthrough':
+        feature_selector = 'passthrough'
+    elif feature_select.startswith('PCA'):
+        n_components = int(feature_select.split('(')[1].split(')')[0])
+        feature_selector = PCA(n_components=n_components)
+    elif feature_select.startswith('SelectKBest'):
+        k = int(feature_select.split(',')[1].split('=')[1].strip(')'))
+        feature_selector = SelectKBest(k=k)
+    elif feature_select.startswith('SelectFromModel'):
+        if 'LassoCV' in feature_select:
+            model = LassoCV()
+        elif 'LinearSVC' in feature_select:
+            model = LinearSVC(penalty="l1", dual=False, class_weight='balanced')
+        feature_selector = SelectFromModel(model, threshold='median')
+    elif feature_select.startswith('RFECV'):
+        model = None
+        if 'LinearSVC' in feature_select:
+            cv_index = feature_select.index('cv=')
+            cv_value = int(feature_select[cv_index:].split(',')[0].split('=')[1])
+            model = LinearSVC(penalty="l1", dual=False, class_weight='balanced')
+        elif 'LogisticRegression' in feature_select:
+            cv_index = feature_select.index('cv=')
+            cv_value = int(feature_select[cv_index:].split(',')[0].split('=')[1])
+            model = LogisticRegression(class_weight='balanced')
+        feature_selector = RFECV(model, cv=cv_value, scoring=prof_score)
+    elif feature_select.startswith('SequentialFeatureSelector'):
+        model = None
+        if 'LogisticRegression' in feature_select:
+            model = LogisticRegression(class_weight='balanced')
+        scoring = prof_score
+        n_features_to_select = int(feature_select.split(',')[2].split('=')[1])
+        cv = int(feature_select.split(',')[3].split('=')[1].strip(')'))
+        feature_selector = SequentialFeatureSelector(model, scoring=scoring, n_features_to_select=n_features_to_select, cv=cv)
+    else:
+        st.error("Invalid feature selection method!")
+        return None
+
     # I used "Pipeline" not "make_pipeline" bc I wanted to name the steps
     pipe = Pipeline([('columntransformer',preproc_pipe),
                  ('feature_create','passthrough'), 
-                 ('feature_select','passthrough'), 
+                 ('feature_select', feature_selector), 
                  ('clf', clf)
                 ])
 
@@ -139,7 +179,7 @@ hi
 
 ##################################################
 # begin : user choices
-st.title("Choose Model and Features, and Display Pipeline")
+st.title("Choose Model, Feature Selection Model, Features, and Display Pipeline")
 # num_pipe_features =  .... st.menu(list of choices or something);
 
 # Checkbox to select numerical features
@@ -149,11 +189,22 @@ selected_num_features = st.multiselect("Select numerical features:", num_pipe_fe
 selected_cat_features = st.multiselect("Select categorical features:", cat_pipe_features)
     
 # Dropdown menu to choose the model
-model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge'])
+model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge', 'Linear SVC'])
 st.write("Selected Model:", model_name)
 
+# Dropdown menu to choose the feature selection method
+feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
+                                                                             'SelectKBest(f_classif,k=5)', 'SelectKBest(f_classif,k=10)', 'SelectKBest(f_classif,k=15)',
+                                                                             'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False, class_weight="balanced"), threshold="median")',
+                                                                             'RFECV(LinearSVC(penalty="l1", dual=False, class_weight="balanced"), cv=2, scoring=prof_score)',
+                                                                             'RFECV(LogisticRegression(class_weight="balanced"), cv=2, scoring=prof_score)',
+                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=5, cv=2)',
+                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=10, cv=2)',
+                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=15, cv=2)'])
+
+
 # Create the pipeline based on the selected model and features
-pipe = create_pipeline(model_name, selected_num_features, selected_cat_features)
+pipe = create_pipeline(model_name, feature_select_method, selected_num_features, selected_cat_features)
 
 # end: user choices
 ##################################################
