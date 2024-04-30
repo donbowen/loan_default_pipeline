@@ -58,7 +58,7 @@ pd.set_option(
 
 # load data
 
-loans = pd.read_csv("inputs/2013_subsample.zip")
+loans = pd.read_csv("inputs/final_2013_subsample.csv")
 
 # drop some bad columns here, or in the pipeline
 

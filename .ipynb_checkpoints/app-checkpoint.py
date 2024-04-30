@@ -12,7 +12,7 @@ from sklearn.compose import (
     make_column_transformer,
 )
 from sklearn.decomposition import PCA
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.feature_selection import (
     RFECV,
     SelectFromModel,
@@ -21,7 +21,7 @@ from sklearn.feature_selection import (
     f_classif,
 )
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import Lasso, LassoCV, LogisticRegression
+from sklearn.linear_model import Lasso, LassoCV, LogisticRegression, Ridge
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     DetCurveDisplay,
@@ -35,6 +35,7 @@ from sklearn.model_selection import (
     KFold,
     cross_validate,
     train_test_split,
+    cross_val_score,
 )
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import (
@@ -42,8 +43,12 @@ from sklearn.preprocessing import (
     OrdinalEncoder,
     PolynomialFeatures,
     StandardScaler,
+    MinMaxScaler,
+    KBinsDiscretizer,
 )
 from sklearn.svm import LinearSVC
+import streamlit as st
+
 
 set_config(display="diagram")  # display='text' is the default
 
@@ -53,7 +58,7 @@ pd.set_option(
 
 # load data
 
-loans = pd.read_csv("inputs/2013_subsample.zip")
+loans = pd.read_csv("inputs/final_2013_subsample.csv")
 
 # drop some bad columns here, or in the pipeline
 
@@ -88,43 +93,143 @@ def custom_prof_score(y, y_pred, roa=0.02, haircut=0.20):
 
 prof_score = make_scorer(custom_prof_score)
 
-dont_use = ["member_id", "id", "desc", "earliest_cr_line", "emp_title", "issue_d","title"]
-
 # list of all num vars:
-num_pipe_features = X_train.select_dtypes(include="number").columns
+num_pipe_features = X_train.select_dtypes(include="float64").columns
 
-# exclude any bad features:
-num_pipe_features = [e for e in num_pipe_features if e not in dont_use]
+# List of all categorical variables
+cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_train.select_dtypes(include='object').columns
 
-cat_pipe_features = ["grade"]  # all: X_train.select_dtypes(include='object').columns
 
 ##################################################
+# Function to create a pipeline based on user-selected model and features
+def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None):
+    if model_name == 'Logistic Regression':
+        clf = LogisticRegression(class_weight='balanced')
+    elif model_name == 'Random Forest':
+        clf = RandomForestClassifier(class_weight='balanced')
+    # Add more elif statements for other models
+    elif model_name == 'Lasso':
+        clf = Lasso(alpha = 0.3)
+    elif model_name == 'Ridge':
+        clf = Ridge()
+    elif model_name == 'Linear SVC':
+        clf = LinearSVC(class_weight='balanced')
+    # Preprocessing pipelines for numerical and categorical features
+    numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
 
-numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
-
-cat_pipe = make_pipeline(OneHotEncoder())
-
-# didn't use make_column_transformer; wanted to name steps
-preproc_pipe = make_column_transformer(
+    cat_pipe = make_pipeline(OneHotEncoder())
+    
+    # Preprocessing pipeline for the entire dataset
+    # didn't use make_column_transformer; wanted to name steps
+    preproc_pipe = make_column_transformer(
     (numer_pipe, num_pipe_features), 
     (cat_pipe, cat_pipe_features), 
     remainder="drop",
-)
+    )
 
-# I used "Pipeline" not "make_pipeline" bc I wanted to name the steps
-pipe = Pipeline([('columntransformer',preproc_pipe),
-                 ('feature_create','passthrough'), 
-                 ('feature_select','passthrough'), 
-                 ('clf', LogisticRegression(class_weight='balanced'))
+    # Feature selection transformer based on user choice
+    if feature_select == 'passthrough':
+        feature_selector = 'passthrough'
+    elif feature_select.startswith('PCA'):
+        n_components = int(feature_select.split('(')[1].split(')')[0])
+        feature_selector = PCA(n_components=n_components)
+    elif feature_select.startswith('SelectKBest'):
+        k = int(feature_select.split(',')[1].split('=')[1].strip(')'))
+        feature_selector = SelectKBest(k=k)
+    elif feature_select.startswith('SelectFromModel'):
+        if 'LassoCV' in feature_select:
+            model = LassoCV()
+        elif 'LinearSVC' in feature_select:
+            model = LinearSVC(penalty="l1", dual=False, class_weight='balanced')
+        feature_selector = SelectFromModel(model, threshold='median')
+    elif feature_select.startswith('RFECV'):
+        model = None
+        if 'LinearSVC' in feature_select:
+            cv_index = feature_select.index('cv=')
+            cv_value = int(feature_select[cv_index:].split(',')[0].split('=')[1])
+            model = LinearSVC(penalty="l1", dual=False, class_weight='balanced')
+        elif 'LogisticRegression' in feature_select:
+            cv_index = feature_select.index('cv=')
+            cv_value = int(feature_select[cv_index:].split(',')[0].split('=')[1])
+            model = LogisticRegression(class_weight='balanced')
+        feature_selector = RFECV(model, cv=cv_value, scoring=prof_score)
+    elif feature_select.startswith('SequentialFeatureSelector'):
+        model = None
+        if 'LogisticRegression' in feature_select:
+            model = LogisticRegression(class_weight='balanced')
+        scoring = prof_score
+        n_features_to_select = int(feature_select.split(',')[2].split('=')[1])
+        cv = int(feature_select.split(',')[3].split('=')[1].strip(')'))
+        feature_selector = SequentialFeatureSelector(model, scoring=scoring, n_features_to_select=n_features_to_select, cv=cv)
+    else:
+        st.error("Invalid feature selection method!")
+        return None
+
+    # Define the feature creation transformer based on the selected method
+    if feature_create == 'passthrough':
+        feature_creator = 'passthrough'
+    elif feature_create.startswith('PolynomialFeatures'):
+        interaction_only = 'interaction_only' in feature_create
+        feature_creator = PolynomialFeatures(degree=degree, interaction_only=interaction_only)
+    elif feature_create == 'Binning':
+        feature_creator = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='uniform')
+    elif feature_create == 'Feature Scaling':
+        feature_creator = MinMaxScaler()
+        
+    # I used "Pipeline" not "make_pipeline" bc I wanted to name the steps
+    pipe = Pipeline([('columntransformer',preproc_pipe),
+                 ('feature_create', feature_creator), 
+                 ('feature_select', feature_selector), 
+                 ('clf', clf)
                 ])
+
+    return pipe
+
+
+
 '''
 hi
 '''
 
 ##################################################
 # begin : user choices
+st.title("Choose Model, Feature Selection Method, Feature Creation Method, Features, and Display Pipeline")
+# num_pipe_features =  .... st.menu(list of choices or something);
 
-# num_pipe_features =  .... st.menu(list of choices or something)
+# Checkbox to select numerical features
+selected_num_features = st.multiselect("Select Numerical Features:", num_pipe_features)
+
+# Checkbox to select categorical features
+selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
+    
+# Dropdown menu to choose the model
+model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge', 'Linear SVC'])
+st.write("Selected Model:", model_name)
+
+# Dropdown menu to choose the feature selection method
+feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
+                                                                             'SelectKBest(f_classif,k=5)', 'SelectKBest(f_classif,k=10)', 'SelectKBest(f_classif,k=15)',
+                                                                             'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False, class_weight="balanced"), threshold="median")',
+                                                                             'RFECV(LinearSVC(penalty="l1", dual=False, class_weight="balanced"), cv=2, scoring=prof_score)',
+                                                                             'RFECV(LogisticRegression(class_weight="balanced"), cv=2, scoring=prof_score)',
+                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=5, cv=2)',
+                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=10, cv=2)',
+                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=15, cv=2)'])
+
+# Dropdown menu to choose the feature creation method
+feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
+
+# If PolynomialFeatures is selected, provide an input field to specify the degree
+if feature_create_method == 'PolynomialFeatures':
+    degree = st.number_input("Enter the degree for PolynomialFeatures", min_value=1, max_value=5, value=2)
+else:
+    degree = None
+
+# Dropdown menu to choose the cross-validation strategy
+cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+    
+# Create the pipeline based on the selected model and features
+pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
 
 # end: user choices
 ##################################################
@@ -132,5 +237,16 @@ hi
 # pipe.set_param() # replace the vars eith the vars they want)
 # pipe.set_param() # replace the model with the model they choose
 
-print(pipe) # why isn't thisprinting in streamlit
 pipe
+
+# Perform cross-validation with custom scoring and additional metrics
+scoring = {'score': prof_score}
+cv_results = cross_validate(pipe, loans, y, cv=cv, scoring=scoring, return_train_score=True)
+
+st.write("Mean Test Score:", cv_results['test_score'].mean())
+st.write("Standard Deviation Test Score:", cv_results['test_score'].std())
+st.write("Standard Deviation Fit Time:", cv_results['fit_time'].std())
+st.write("Mean Score Time:", cv_results['score_time'].mean())
+ # why isn't thisprinting in streamlit
+
+
