@@ -94,7 +94,7 @@ def custom_prof_score(y, y_pred, roa=0.02, haircut=0.20):
 prof_score = make_scorer(custom_prof_score)
 
 # list of all num vars:
-num_pipe_features = X_train.select_dtypes(include="number").columns
+num_pipe_features = X_train.select_dtypes(include="float64").columns
 
 # List of all categorical variables
 cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_train.select_dtypes(include='object').columns
