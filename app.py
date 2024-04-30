@@ -42,6 +42,8 @@ from sklearn.preprocessing import (
     OrdinalEncoder,
     PolynomialFeatures,
     StandardScaler,
+    MinMaxScaler,
+    KBinsDiscretizer,
 )
 from sklearn.svm import LinearSVC
 import streamlit as st
@@ -99,7 +101,7 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 
 ##################################################
 # Function to create a pipeline based on user-selected model and features
-def create_pipeline(model_name, feature_select, num_pipe_features, cat_pipe_features):
+def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None):
     if model_name == 'Logistic Regression':
         clf = LogisticRegression(class_weight='balanced')
     elif model_name == 'Random Forest':
@@ -162,9 +164,20 @@ def create_pipeline(model_name, feature_select, num_pipe_features, cat_pipe_feat
         st.error("Invalid feature selection method!")
         return None
 
+    # Define the feature creation transformer based on the selected method
+    if feature_create == 'passthrough':
+        feature_creator = 'passthrough'
+    elif feature_create.startswith('PolynomialFeatures'):
+        interaction_only = 'interaction_only' in feature_create
+        feature_creator = PolynomialFeatures(degree=degree, interaction_only=interaction_only)
+    elif feature_create == 'Binning':
+        feature_creator = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='uniform')
+    elif feature_create == 'Feature Scaling':
+        feature_creator = MinMaxScaler()
+        
     # I used "Pipeline" not "make_pipeline" bc I wanted to name the steps
     pipe = Pipeline([('columntransformer',preproc_pipe),
-                 ('feature_create','passthrough'), 
+                 ('feature_create', feature_creator), 
                  ('feature_select', feature_selector), 
                  ('clf', clf)
                 ])
@@ -179,14 +192,14 @@ hi
 
 ##################################################
 # begin : user choices
-st.title("Choose Model, Feature Selection Model, Features, and Display Pipeline")
+st.title("Choose Model, Feature Selection Method, Feature Creation Method, Features, and Display Pipeline")
 # num_pipe_features =  .... st.menu(list of choices or something);
 
 # Checkbox to select numerical features
-selected_num_features = st.multiselect("Select numerical features:", num_pipe_features)
+selected_num_features = st.multiselect("Select Numerical Features:", num_pipe_features)
 
 # Checkbox to select categorical features
-selected_cat_features = st.multiselect("Select categorical features:", cat_pipe_features)
+selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
     
 # Dropdown menu to choose the model
 model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge', 'Linear SVC'])
@@ -202,9 +215,16 @@ feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passt
                                                                              'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=10, cv=2)',
                                                                              'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=15, cv=2)'])
 
+# Dropdown menu to choose the feature creation method
+feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
 
+# If PolynomialFeatures is selected, provide an input field to specify the degree
+if feature_create_method == 'PolynomialFeatures':
+    degree = st.number_input("Enter the degree for PolynomialFeatures", min_value=1, max_value=5, value=2)
+else:
+    degree = None
 # Create the pipeline based on the selected model and features
-pipe = create_pipeline(model_name, feature_select_method, selected_num_features, selected_cat_features)
+pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
 
 # end: user choices
 ##################################################
