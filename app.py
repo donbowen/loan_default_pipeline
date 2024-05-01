@@ -48,6 +48,8 @@ from sklearn.preprocessing import (
 )
 from sklearn.svm import LinearSVC
 import streamlit as st
+from sklearn.decomposition import TruncatedSVD
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
 
 set_config(display="diagram")  # display='text' is the default
@@ -127,12 +129,12 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
     remainder="drop",
     )
 
-    # Feature selection transformer based on user choice
+# Define the feature selection transformer based on the selected method
     if feature_select == 'passthrough':
         feature_selector = 'passthrough'
     elif feature_select.startswith('PCA'):
         n_components = int(feature_select.split('(')[1].split(')')[0])
-        feature_selector = PCA(n_components=n_components)
+        feature_selector = TruncatedSVD(n_components=n_components)
     elif feature_select.startswith('SelectKBest'):
         k = st.number_input("Enter the number of features for SelectKBest", min_value=1, max_value=len(X_train.columns), value=5)
         feature_selector = SelectKBest(k=k)
@@ -140,7 +142,8 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         if 'LassoCV' in feature_select:
             model = LassoCV()
         elif 'LinearSVC' in feature_select:
-            model = LinearSVC(penalty="l1", dual=False, class_weight='balanced')
+            class_weight = st.selectbox("Select class weight for LinearSVC", ['balanced', None])
+            model = LinearSVC(penalty="l1", dual=False, class_weight=class_weight)
         threshold = st.number_input("Enter the threshold for SelectFromModel", min_value=0.0, max_value=1.0, value=0.5)
         feature_selector = SelectFromModel(model, threshold=threshold)
     elif feature_select.startswith('RFECV'):
@@ -152,15 +155,18 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
             cv_value = st.number_input("Enter the number of folds for RFECV", min_value=2, max_value=10, value=2)
     
         if 'LinearSVC' in feature_select:
-            model = LinearSVC(penalty="l1", dual=False, class_weight='balanced')
+            class_weight = st.selectbox("Select class weight for LinearSVC", ['balanced', None])
+            model = LinearSVC(penalty="l1", dual=False, class_weight=class_weight)
         elif 'LogisticRegression' in feature_select:
-            model = LogisticRegression(class_weight='balanced')
+            class_weight = st.selectbox("Select class weight for LogisticRegression", ['balanced', None])
+            model = LogisticRegression(class_weight=class_weight)
     
         feature_selector = RFECV(model, cv=cv_value, scoring=prof_score)
     elif feature_select.startswith('SequentialFeatureSelector'):
         model = None
         if 'LogisticRegression' in feature_select:
-            model = LogisticRegression(class_weight='balanced')
+            class_weight = st.selectbox("Select class weight for LogisticRegression", ['balanced', None])
+            model = LogisticRegression(class_weight=class_weight)
         scoring = prof_score
         n_features_to_select = st.number_input("Enter the number of features to select for SequentialFeatureSelector", min_value=1, max_value=len(X_train.columns), value=5)
         cv = st.number_input("Enter the number of folds for SequentialFeatureSelector", min_value=2, max_value=10, value=2)
@@ -168,7 +174,6 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
     else:
         st.error("Invalid feature selection method!")
         return None
-
 
     # Define the feature creation transformer based on the selected method
     if feature_create == 'passthrough':
@@ -214,10 +219,10 @@ st.write("Selected Model:", model_name)
 # Dropdown menu to choose the feature selection method
 feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
                                                                              'SelectKBest(f_classif)',
-                                                                             'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False, class_weight="balanced"))',
-                                                                             'RFECV(LinearSVC(penalty="l1", dual=False, class_weight="balanced"), scoring=prof_score)',
-                                                                             'RFECV(LogisticRegression(class_weight="balanced"), scoring=prof_score)',
-                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score)',])
+                                                                             'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))',
+                                                                             'RFECV(LinearSVC(penalty="l1", dual=False), scoring=prof_score)',
+                                                                             'RFECV(LogisticRegression, scoring=prof_score)',
+                                                                             'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',])
 
 # Dropdown menu to choose the feature creation method
 feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
@@ -241,6 +246,39 @@ cv = st.number_input("Enter the number of folds for cross-validation", min_value
 # pipe.set_param() # replace the model with the model they choose
 
 pipe
+
+pipe.fit(X_train, y_train)
+
+# Get predictions
+y_pred_train = pipe.predict(X_train)
+
+# Calculate classification report
+report = classification_report(y_train, y_pred_train, output_dict=True)
+
+# Create a formatted classification report string
+classification_report_str = """
+Classification Report (Train Data):
+
+|        | Precision | Recall | F1-Score | Support |
+|--------|-----------|--------|----------|---------|
+| False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+| True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+|--------|-----------|--------|----------|---------|
+| Accuracy |          |        |   {:.2f}  |         |
+""".format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
+           report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
+           report["accuracy"])
+
+# Display classification report
+st.markdown(classification_report_str)
+
+# Calculate confusion matrix
+cm = confusion_matrix(y_train, y_pred_train)
+
+# Display confusion matrix
+st.write("Confusion Matrix (Train Data):")
+confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
+st.pyplot(confusion_matrix_chart.figure_)
 
 # Perform cross-validation with custom scoring and additional metrics
 scoring = {'score': prof_score}
