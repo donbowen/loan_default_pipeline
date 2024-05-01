@@ -134,36 +134,41 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         n_components = int(feature_select.split('(')[1].split(')')[0])
         feature_selector = PCA(n_components=n_components)
     elif feature_select.startswith('SelectKBest'):
-        k = int(feature_select.split(',')[1].split('=')[1].strip(')'))
+        k = st.number_input("Enter the number of features for SelectKBest", min_value=1, max_value=len(X_train.columns), value=5)
         feature_selector = SelectKBest(k=k)
     elif feature_select.startswith('SelectFromModel'):
         if 'LassoCV' in feature_select:
             model = LassoCV()
         elif 'LinearSVC' in feature_select:
             model = LinearSVC(penalty="l1", dual=False, class_weight='balanced')
-        feature_selector = SelectFromModel(model, threshold='median')
+        threshold = st.number_input("Enter the threshold for SelectFromModel", min_value=0.0, max_value=1.0, value=0.5)
+        feature_selector = SelectFromModel(model, threshold=threshold)
     elif feature_select.startswith('RFECV'):
         model = None
-        if 'LinearSVC' in feature_select:
-            cv_index = feature_select.index('cv=')
+        cv_index = feature_select.find('cv=')
+        if cv_index != -1:  # If 'cv=' is found in the string
             cv_value = int(feature_select[cv_index:].split(',')[0].split('=')[1])
+        else:
+            cv_value = st.number_input("Enter the number of folds for RFECV", min_value=2, max_value=10, value=2)
+    
+        if 'LinearSVC' in feature_select:
             model = LinearSVC(penalty="l1", dual=False, class_weight='balanced')
         elif 'LogisticRegression' in feature_select:
-            cv_index = feature_select.index('cv=')
-            cv_value = int(feature_select[cv_index:].split(',')[0].split('=')[1])
             model = LogisticRegression(class_weight='balanced')
+    
         feature_selector = RFECV(model, cv=cv_value, scoring=prof_score)
     elif feature_select.startswith('SequentialFeatureSelector'):
         model = None
         if 'LogisticRegression' in feature_select:
             model = LogisticRegression(class_weight='balanced')
         scoring = prof_score
-        n_features_to_select = int(feature_select.split(',')[2].split('=')[1])
-        cv = int(feature_select.split(',')[3].split('=')[1].strip(')'))
+        n_features_to_select = st.number_input("Enter the number of features to select for SequentialFeatureSelector", min_value=1, max_value=len(X_train.columns), value=5)
+        cv = st.number_input("Enter the number of folds for SequentialFeatureSelector", min_value=2, max_value=10, value=2)
         feature_selector = SequentialFeatureSelector(model, scoring=scoring, n_features_to_select=n_features_to_select, cv=cv)
     else:
         st.error("Invalid feature selection method!")
         return None
+
 
     # Define the feature creation transformer based on the selected method
     if feature_create == 'passthrough':
@@ -208,13 +213,11 @@ st.write("Selected Model:", model_name)
 
 # Dropdown menu to choose the feature selection method
 feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
-                                                                             'SelectKBest(f_classif,k=5)', 'SelectKBest(f_classif,k=10)', 'SelectKBest(f_classif,k=15)',
-                                                                             'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False, class_weight="balanced"), threshold="median")',
-                                                                             'RFECV(LinearSVC(penalty="l1", dual=False, class_weight="balanced"), cv=2, scoring=prof_score)',
-                                                                             'RFECV(LogisticRegression(class_weight="balanced"), cv=2, scoring=prof_score)',
-                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=5, cv=2)',
-                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=10, cv=2)',
-                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score, n_features_to_select=15, cv=2)'])
+                                                                             'SelectKBest(f_classif)',
+                                                                             'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False, class_weight="balanced"))',
+                                                                             'RFECV(LinearSVC(penalty="l1", dual=False, class_weight="balanced"), scoring=prof_score)',
+                                                                             'RFECV(LogisticRegression(class_weight="balanced"), scoring=prof_score)',
+                                                                             'SequentialFeatureSelector(LogisticRegression(class_weight="balanced"), scoring=prof_score)',])
 
 # Dropdown menu to choose the feature creation method
 feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
@@ -225,11 +228,11 @@ if feature_create_method == 'PolynomialFeatures':
 else:
     degree = None
 
-# Dropdown menu to choose the cross-validation strategy
-cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
-    
 # Create the pipeline based on the selected model and features
 pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
+
+# Dropdown menu to choose the cross-validation strategy
+cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
 
 # end: user choices
 ##################################################
