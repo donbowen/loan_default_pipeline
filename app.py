@@ -12,7 +12,7 @@ from sklearn.compose import (
     make_column_transformer,
 )
 from sklearn.decomposition import PCA
-from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor, VotingRegressor
 from sklearn.feature_selection import (
     RFECV,
     SelectFromModel,
@@ -53,6 +53,7 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
 import seaborn as sns
 from sklearn.experimental import enable_hist_gradient_boosting
+from scipy.sparse import csr_matrix
 
 
 ################################ formatting (not totally sure what all of this does) #############################
@@ -147,8 +148,10 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         clf = LogisticRegression(class_weight='balanced', penalty='l2')
     elif model_name == 'HistGradientBoostingRegressor':
         if param_range is not None:
-            n_estimators_min, n_estimators_max = param_range
-            clf = HistGradientBoostingRegressor(max_iter=n_estimators_max)
+            learning_rate_min, learning_rate_max = param_range
+            learning_rates = np.linspace(learning_rate_min, learning_rate_max, num=10)  # Adjust num as needed
+            clfs = [(str(lr), HistGradientBoostingRegressor(learning_rate=lr)) for lr in learning_rates]
+            clf = VotingRegressor(clfs)
         else:
             clf = HistGradientBoostingRegressor()
     elif model_name == 'Lasso':
@@ -280,10 +283,9 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         C_max = st.number_input("Enter the maximum value for C", min_value=0.0001, max_value=100.0, value=100.0, step=0.0001)
         param_range = [(C_min, C_max)]  # For Linear SVC and Logistic Regression, param_range is a list of tuples
     elif model_name in ['HistGradientBoostingRegressor']:
-        n_estimators_min = st.number_input("Enter the minimum value for n_estimators", min_value=1, max_value=100, value=10)
-        n_estimators_max = st.number_input("Enter the maximum value for n_estimators", min_value=n_estimators_min, max_value=1000, value=100)
-        param_range = (n_estimators_min, n_estimators_max)
-  
+        learning_rate_min = st.number_input("Enter the minimum value for learning rate", min_value=0.01, max_value=1.0, value=0.1)
+        learning_rate_max = st.number_input("Enter the maximum value for learning rate", min_value=0.01, max_value=1.0, value=0.1)
+        param_range = (learning_rate_min, learning_rate_max)
 
 
     
@@ -316,11 +318,21 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     # User choice outputs
     
     pipe
-    
+
+    # Fit the pipeline with the training data
     pipe.fit(X_train, y_train)
+
+    # Assuming pipe is your pipeline
+    X_encoded = pipe.transform(X_train)  # Assuming X_train is your input data
+    
+    # Convert sparse data to dense numpy array after OneHotEncoding
+    X_dense = X_encoded.toarray()
+    
+    # Fit the pipeline with the dense data
+    pipe.fit(X_dense, y_train)
     
     # Get predictions
-    y_pred_train = pipe.predict(X_train)
+    y_pred_train = pipe.predict(X_dense)
 
     if model_name in ["Logistic Regression", "Linear SVC"]:
         # Calculate classification report
