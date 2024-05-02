@@ -21,7 +21,7 @@ from sklearn.feature_selection import (
     f_classif,
 )
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import Lasso, LassoCV, LogisticRegression, Ridge
+from sklearn.linear_model import Lasso, LassoCV, LogisticRegression, Ridge, RidgeCV
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     DetCurveDisplay,
@@ -44,12 +44,14 @@ from sklearn.preprocessing import (
     PolynomialFeatures,
     StandardScaler,
     MinMaxScaler,
+    MaxAbsScaler,
     KBinsDiscretizer,
 )
 from sklearn.svm import LinearSVC
 import streamlit as st
 from sklearn.decomposition import TruncatedSVD
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay, mean_squared_error, r2_score
+import seaborn as sns
 
 
 ################################ formatting (not totally sure what all of this does) #############################
@@ -139,16 +141,26 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 ################################################## custom model code #################################################
 
 # Function to create a pipeline based on user-selected model and features
-def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None):
+def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None, alpha_range = None):
     if model_name == 'Logistic Regression':
         clf = LogisticRegression(class_weight='balanced')
     elif model_name == 'Random Forest':
         clf = RandomForestClassifier(class_weight='balanced')
     # Add more elif statements for other models
     elif model_name == 'Lasso':
-        clf = Lasso(alpha = 0.3)
+        if alpha_range is not None:
+            alpha_min, alpha_max, alpha_points = alpha_range
+            alphas = np.linspace(alpha_min, alpha_max, alpha_points)
+            clf = LassoCV(alphas=alphas)
+        else:
+            clf = Lasso(alpha=0.3)
     elif model_name == 'Ridge':
-        clf = Ridge()
+        if alpha_range is not None:
+            alpha_min, alpha_max, alpha_points = alpha_range
+            alphas = np.linspace(alpha_min, alpha_max, alpha_points)
+            clf = RidgeCV(alphas=alphas)
+        else:
+            clf = Ridge()
     elif model_name == 'Linear SVC':
         clf = LinearSVC(class_weight='balanced')
     # Preprocessing pipelines for numerical and categorical features
@@ -189,10 +201,7 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         else:
             cv_value = st.number_input("Enter the number of folds for RFECV", min_value=2, max_value=10, value=2)
     
-        if 'LinearSVC' in feature_select:
-            class_weight = st.selectbox("Select class weight for LinearSVC", ['balanced', None])
-            model = LinearSVC(penalty="l1", dual=False, class_weight=class_weight)
-        elif 'LogisticRegression' in feature_select:
+        if 'LogisticRegression' in feature_select:
             class_weight = st.selectbox("Select class weight for LogisticRegression", ['balanced', None])
             model = LogisticRegression(class_weight=class_weight)
     
@@ -216,10 +225,10 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
     elif feature_create.startswith('PolynomialFeatures'):
         interaction_only = 'interaction_only' in feature_create
         feature_creator = PolynomialFeatures(degree=degree, interaction_only=interaction_only)
-    elif feature_create == 'Binning':
-        feature_creator = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='uniform')
-    elif feature_create == 'Feature Scaling':
+    elif feature_create == 'MinMaxScaler':
         feature_creator = MinMaxScaler()
+    elif feature_create == 'MaxAbsScaler':
+        feature_creator = MaxAbsScaler()
         
     # I used "Pipeline" not "make_pipeline" bc I wanted to name the steps
     pipe = Pipeline([('columntransformer',preproc_pipe),
@@ -254,17 +263,25 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     # Dropdown menu to choose the model
     model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge', 'Linear SVC'])
     st.write("Selected Model:", model_name)
+
+    #Select alpha range for Lasso and Ridge models
+    alpha_range = None
+    if model_name in ['Lasso', 'Ridge']:
+        alpha_min = st.number_input("Enter the minimum alpha", min_value=0.0001, max_value=100.0, value=0.0001, step=0.0001)
+        alpha_max = st.number_input("Enter the maximum alpha", min_value=0.0001, max_value=100.0, value=100.0, step=0.0001)
+        alpha_points = st.number_input("Enter the number of alpha points", min_value=1, max_value=100, value=25)
+        alpha_range = (alpha_min, alpha_max, alpha_points)
     
     # Dropdown menu to choose the feature selection method
     feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
                                                                                  'SelectKBest(f_classif)',
                                                                                  'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))',
-                                                                                 'RFECV(LinearSVC(penalty="l1", dual=False), scoring=prof_score)',
+                                                                                 
                                                                                  'RFECV(LogisticRegression, scoring=prof_score)',
                                                                                  'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',])
     
     # Dropdown menu to choose the feature creation method
-    feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
+    feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'MinMaxScaler', 'MaxAbsScaler'])
     
     # If PolynomialFeatures is selected, provide an input field to specify the degree
     if feature_create_method == 'PolynomialFeatures':
@@ -273,7 +290,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         degree = None
     
     # Create the pipeline based on the selected model and features
-    pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
+    pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree, alpha_range)
     
     # Dropdown menu to choose the cross-validation strategy
     cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
@@ -281,8 +298,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     # end: user choices
     ##################################################
     
-    # pipe.set_param() # replace the vars eith the vars they want)
-    # pipe.set_param() # replace the model with the model they choose
+    # User choice outputs
     
     pipe
     
@@ -290,34 +306,74 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     
     # Get predictions
     y_pred_train = pipe.predict(X_train)
+
+    if model_name in ["Logistic Regression", "Random Forest", "Linear SVC"]:
+        # Calculate classification report
+        report = classification_report(y_train, y_pred_train, output_dict=True)
+        
+        # Create a formatted classification report string
+        classification_report_str = """
+        Classification Report (Train Data):
+        
+        |        | Precision | Recall | F1-Score | Support |
+        |--------|-----------|--------|----------|---------|
+        | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+        | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+        |--------|-----------|--------|----------|---------|
+        | Accuracy |          |        |   {:.2f}  |         |
+        """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
+                   report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
+                   report["accuracy"])
+        
+        # Display classification report
+        st.markdown(classification_report_str)
+        
+        # Calculate confusion matrix
+        cm = confusion_matrix(y_train, y_pred_train)
+        
+        # Display confusion matrix
+        st.write("Confusion Matrix (Train Data):")
+        confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
+        st.pyplot(confusion_matrix_chart.figure_)
+    else:
+        # Calculate metrics for Regression model
+        mse_train = mean_squared_error(y_train, y_pred_train)
+        rmse_train = np.sqrt(mse_train)
+        r2_train = r2_score(y_train, y_pred_train)
     
-    # Calculate classification report
-    report = classification_report(y_train, y_pred_train, output_dict=True)
+        # Create a formatted regression report string
+        regression_report_str = """
+        Regression Report (Train Data):
     
-    # Create a formatted classification report string
-    classification_report_str = """
-    Classification Report (Train Data):
+        Mean Squared Error: {:.2f}
+        Root Mean Squared Error: {:.2f}
+        R-squared: {:.2f}
+        """.format(mse_train, rmse_train, r2_train)
     
-    |        | Precision | Recall | F1-Score | Support |
-    |--------|-----------|--------|----------|---------|
-    | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-    | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-    |--------|-----------|--------|----------|---------|
-    | Accuracy |          |        |   {:.2f}  |         |
-    """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
-               report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
-               report["accuracy"])
+        # Display regression report
+        st.markdown(regression_report_str)
+        
+        def plot_residuals(y_true, y_pred):
+            # Calculate residuals
+            residuals = y_true - y_pred
+            
+            # Create residual plot
+            plt.figure(figsize=(8, 6))
+            sns.residplot(y_pred, residuals, lowess=True, line_kws={'color': 'red', 'lw': 1})
+            
+            # Set plot labels and title
+            plt.title('Residual Plot')
+            plt.xlabel('Predicted Values')
+            plt.ylabel('Residuals')
+            plt.grid(True)
+            
+            # Show plot
+            st.pyplot()
+
+        #Display residual plot
     
-    # Display classification report
-    st.markdown(classification_report_str)
-    
-    # Calculate confusion matrix
-    cm = confusion_matrix(y_train, y_pred_train)
-    
-    # Display confusion matrix
-    st.write("Confusion Matrix (Train Data):")
-    confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
-    st.pyplot(confusion_matrix_chart.figure_)
+        plot_residuals(y_train, y_pred_train)
+
     
     # Perform cross-validation with custom scoring and additional metrics
     scoring = {'score': prof_score}
