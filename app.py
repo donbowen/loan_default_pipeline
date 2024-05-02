@@ -12,7 +12,7 @@ from sklearn.compose import (
     make_column_transformer,
 )
 from sklearn.decomposition import PCA
-from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 from sklearn.feature_selection import (
     RFECV,
     SelectFromModel,
@@ -50,8 +50,9 @@ from sklearn.preprocessing import (
 from sklearn.svm import LinearSVC
 import streamlit as st
 from sklearn.decomposition import TruncatedSVD
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay, mean_squared_error, r2_score
+from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
 import seaborn as sns
+from sklearn.experimental import enable_hist_gradient_boosting
 
 
 ################################ formatting (not totally sure what all of this does) #############################
@@ -144,16 +145,12 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None, param_range = None):
     if model_name == 'Logistic Regression':
         clf = LogisticRegression(class_weight='balanced', penalty='l2')
-    elif model_name == 'Random Forest':
-        min_depth, max_depth = param_range
-        possible_max_depths = list(range(min_depth, max_depth + 1))
-        selected_max_depths = st.multiselect("Select max_depth", possible_max_depths)
-        classifiers = []
-        for depth in selected_max_depths:
-            classifiers.append(RandomForestClassifier(class_weight='balanced', max_depth=depth))
-            clf = VotingClassifier(estimators=[('rf_'+str(depth), model) for depth, model in zip(selected_max_depths, classifiers)], voting='hard')
+    elif model_name == 'HistGradientBoostingRegressor':
+        if param_range is not None:
+            n_estimators_min, n_estimators_max = param_range
+            clf = HistGradientBoostingRegressor(max_iter=n_estimators_max)
         else:
-            clf = RandomForestClassifier(class_weight='balanced')
+            clf = HistGradientBoostingRegressor()
     elif model_name == 'Lasso':
         if param_range is not None:
             alpha_min, alpha_max, alpha_points = param_range
@@ -268,10 +265,10 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
         
     # Dropdown menu to choose the model
-    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge', 'Linear SVC'])
+    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'HistGradientBoostingRegressor', 'Lasso', 'Ridge', 'Linear SVC'])
     st.write("Selected Model:", model_name)
 
-    # Select hyperparameter range for Lasso, Ridge, Linear SVC, Logistic Regression, and Random Forest models
+    # Select hyperparameter range for Lasso, Ridge, Linear SVC, Logistic Regression, and HistGradient models
     param_range = None
     if model_name in ['Lasso', 'Ridge']:
         alpha_min = st.number_input("Enter the minimum alpha", min_value=0.0001, max_value=100.0, value=0.0001, step=0.0001)
@@ -282,13 +279,11 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         C_min = st.number_input("Enter the minimum value for C", min_value=0.0001, max_value=100.0, value=0.0001, step=0.0001)
         C_max = st.number_input("Enter the maximum value for C", min_value=0.0001, max_value=100.0, value=100.0, step=0.0001)
         param_range = [(C_min, C_max)]  # For Linear SVC and Logistic Regression, param_range is a list of tuples
-    elif model_name in ['Random Forest']:
-        # Get user input for the range of max_depth
-        max_depth_min = st.number_input("Enter the minimum value for max_depth", min_value=1, max_value=10, value=1)
-        max_depth_max = st.number_input("Enter the maximum value for max_depth", min_value=max_depth_min, max_value=100, value=10)
-        
-        # Assign the range to param_range
-        param_range = (max_depth_min, max_depth_max)
+    elif model_name in ['HistGradientBoostingRegressor']:
+        n_estimators_min = st.number_input("Enter the minimum value for n_estimators", min_value=1, max_value=100, value=10)
+        n_estimators_max = st.number_input("Enter the maximum value for n_estimators", min_value=n_estimators_min, max_value=1000, value=100)
+        param_range = (n_estimators_min, n_estimators_max)
+  
 
 
     
@@ -327,7 +322,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     # Get predictions
     y_pred_train = pipe.predict(X_train)
 
-    if model_name in ["Logistic Regression", "Random Forest", "Linear SVC"]:
+    if model_name in ["Logistic Regression", "Linear SVC"]:
         # Calculate classification report
         report = classification_report(y_train, y_pred_train, output_dict=True)
         
