@@ -51,8 +51,42 @@ import streamlit as st
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
-
 set_config(display="diagram")  # display='text' is the default
+
+############################################################################################# start of formatting changes
+
+
+# Page config
+st.set_page_config(
+    "Machine Learning to Create Custom Predictions for Loan Defaults",
+    "📈",
+    initial_sidebar_state="expanded",
+    layout="wide",
+)
+
+############################################################################################# sidebar
+with st.sidebar:
+    if 'current_section' not in st.session_state:
+        st.session_state['current_section'] = 'Overview'
+
+    with st.sidebar:
+        st.write("# Menu:")
+
+        menu_options = {
+            "Overview, Objectives, Process, and Results": "Overview",
+            "Custom Machine Learning Model Builder": "Custom Model Builder",
+            "Leaderboard": "Leaderboard",
+            "Dictionary": "Dictionary"
+        }
+
+        # Use buttons with space padding for alignment
+        max_length = max(len(option) for option in menu_options.keys())
+        for text, section in menu_options.items():
+            padded_text = text.ljust(max_length)  # Padding text to make uniform
+            if st.button(padded_text):
+                st.session_state['current_section'] = section
+
+#############################################################################################
 
 pd.set_option(
     "display.max_colwidth", 1000, "display.max_rows", 50, "display.max_columns", None
@@ -197,97 +231,167 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
 
 
 
-'''
-hi
-'''
 
-##################################################
-# begin : user choices
-st.title("Choose Model, Feature Selection Method, Feature Creation Method, Features, and Display Pipeline")
-# num_pipe_features =  .... st.menu(list of choices or something);
+################################################### Overview ########################################################
 
-# Checkbox to select numerical features
-selected_num_features = st.multiselect("Select Numerical Features:", num_pipe_features)
+if st.session_state['current_section'] == 'Overview':
+    st.title("Overview")
+    st.header("Overview, Objectives, Process, and Results")
+    st.write("This tab will include an overview of our project proposal, the objectives of our project, the process we went through to build out this dashboard, and the results/takeaways")
 
-# Checkbox to select categorical features
-selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
+################################################### custom model builder ########################################################
+
+elif st.session_state['current_section'] == 'Custom Model Builder':
+
+    # begin : user choices
+    st.title("Choose Model, Feature Selection Method, Feature Creation Method, Features, and Display Pipeline")
+    # num_pipe_features =  .... st.menu(list of choices or something);
     
-# Dropdown menu to choose the model
-model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge', 'Linear SVC'])
-st.write("Selected Model:", model_name)
+    # Checkbox to select numerical features
+    selected_num_features = st.multiselect("Select Numerical Features:", num_pipe_features)
+    
+    # Checkbox to select categorical features
+    selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
+        
+    # Dropdown menu to choose the model
+    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge', 'Linear SVC'])
+    st.write("Selected Model:", model_name)
+    
+    # Dropdown menu to choose the feature selection method
+    feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
+                                                                                 'SelectKBest(f_classif)',
+                                                                                 'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))',
+                                                                                 'RFECV(LinearSVC(penalty="l1", dual=False), scoring=prof_score)',
+                                                                                 'RFECV(LogisticRegression, scoring=prof_score)',
+                                                                                 'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',])
+    
+    # Dropdown menu to choose the feature creation method
+    feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
+    
+    # If PolynomialFeatures is selected, provide an input field to specify the degree
+    if feature_create_method == 'PolynomialFeatures':
+        degree = st.number_input("Enter the degree for PolynomialFeatures", min_value=1, max_value=5, value=2)
+    else:
+        degree = None
+    
+    # Create the pipeline based on the selected model and features
+    pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
+    
+    # Dropdown menu to choose the cross-validation strategy
+    cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+    
+    # end: user choices
+    ##################################################
+    
+    # pipe.set_param() # replace the vars eith the vars they want)
+    # pipe.set_param() # replace the model with the model they choose
+    
+    pipe
+    
+    pipe.fit(X_train, y_train)
+    
+    # Get predictions
+    y_pred_train = pipe.predict(X_train)
+    
+    # Calculate classification report
+    report = classification_report(y_train, y_pred_train, output_dict=True)
+    
+    # Create a formatted classification report string
+    classification_report_str = """
+    Classification Report (Train Data):
+    
+    |        | Precision | Recall | F1-Score | Support |
+    |--------|-----------|--------|----------|---------|
+    | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+    | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+    |--------|-----------|--------|----------|---------|
+    | Accuracy |          |        |   {:.2f}  |         |
+    """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
+               report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
+               report["accuracy"])
+    
+    # Display classification report
+    st.markdown(classification_report_str)
+    
+    # Calculate confusion matrix
+    cm = confusion_matrix(y_train, y_pred_train)
+    
+    # Display confusion matrix
+    st.write("Confusion Matrix (Train Data):")
+    confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
+    st.pyplot(confusion_matrix_chart.figure_)
+    
+    # Perform cross-validation with custom scoring and additional metrics
+    scoring = {'score': prof_score}
+    cv_results = cross_validate(pipe, loans, y, cv=cv, scoring=scoring, return_train_score=True)
+    
+    st.write("Mean Test Score:", cv_results['test_score'].mean())
+    st.write("Standard Deviation Test Score:", cv_results['test_score'].std())
+    st.write("Standard Deviation Fit Time:", cv_results['fit_time'].std())
+    st.write("Mean Score Time:", cv_results['score_time'].mean())
+     # why isn't thisprinting in streamlit
 
-# Dropdown menu to choose the feature selection method
-feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
-                                                                             'SelectKBest(f_classif)',
-                                                                             'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))',
-                                                                             'RFECV(LinearSVC(penalty="l1", dual=False), scoring=prof_score)',
-                                                                             'RFECV(LogisticRegression, scoring=prof_score)',
-                                                                             'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',])
+################################################### Leaderboard ########################################################
 
-# Dropdown menu to choose the feature creation method
-feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
+elif st.session_state['current_section'] == 'Leaderboard':
+    st.title("Leaderboard")
+    st.header("Hopefully this isn't too hard because it will probably be the last thing we do")
 
-# If PolynomialFeatures is selected, provide an input field to specify the degree
-if feature_create_method == 'PolynomialFeatures':
-    degree = st.number_input("Enter the degree for PolynomialFeatures", min_value=1, max_value=5, value=2)
-else:
-    degree = None
+################################################### custom model builder ########################################################
 
-# Create the pipeline based on the selected model and features
-pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
+elif st.session_state['current_section'] == 'Dictionary':
+    st.title("Dictionary")
+    st.header("Numerical Features:")
+    
+    st.subheader("annual_inc")
+    st.write('The self-reported annual income provided by the borrower during registration.')
 
-# Dropdown menu to choose the cross-validation strategy
-cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+    st.subheader('dti')
+    st.write('A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.')
 
-# end: user choices
-##################################################
+    st.subheader('earliest_cr_line')
+    st.write('')
 
-# pipe.set_param() # replace the vars eith the vars they want)
-# pipe.set_param() # replace the model with the model they choose
+    st.subheader('')
+    st.write('')
 
-pipe
+    st.subheader('')
+    st.write('')
 
-pipe.fit(X_train, y_train)
+    st.subheader('')
+    st.write('')
 
-# Get predictions
-y_pred_train = pipe.predict(X_train)
+    st.subheader('')
+    st.write('')
 
-# Calculate classification report
-report = classification_report(y_train, y_pred_train, output_dict=True)
+    st.subheader('')
+    st.write('')
 
-# Create a formatted classification report string
-classification_report_str = """
-Classification Report (Train Data):
+    st.subheader('')
+    st.write('')
 
-|        | Precision | Recall | F1-Score | Support |
-|--------|-----------|--------|----------|---------|
-| False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-| True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-|--------|-----------|--------|----------|---------|
-| Accuracy |          |        |   {:.2f}  |         |
-""".format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
-           report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
-           report["accuracy"])
+    st.subheader('')
+    st.write('')
 
-# Display classification report
-st.markdown(classification_report_str)
+    st.subheader('')
+    st.write('')
 
-# Calculate confusion matrix
-cm = confusion_matrix(y_train, y_pred_train)
+    st.subheader('')
+    st.write('')
 
-# Display confusion matrix
-st.write("Confusion Matrix (Train Data):")
-confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
-st.pyplot(confusion_matrix_chart.figure_)
+    st.subheader('')
+    st.write('')
 
-# Perform cross-validation with custom scoring and additional metrics
-scoring = {'score': prof_score}
-cv_results = cross_validate(pipe, loans, y, cv=cv, scoring=scoring, return_train_score=True)
+    st.subheader('')
+    st.write('')
 
-st.write("Mean Test Score:", cv_results['test_score'].mean())
-st.write("Standard Deviation Test Score:", cv_results['test_score'].std())
-st.write("Standard Deviation Fit Time:", cv_results['fit_time'].std())
-st.write("Mean Score Time:", cv_results['score_time'].mean())
- # why isn't thisprinting in streamlit
+    st.subheader('')
+    st.write('')
+
+    st.subheader('')
+    st.write('')
+    
+    st.header("Categorical Features:")
+    st.header("Model:")
 
 
