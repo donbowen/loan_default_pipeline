@@ -468,5 +468,47 @@ elif st.session_state['current_section'] == 'Dictionary':
 
 
     st.header("Model:")
+    model = {
+        "Logistic Regression": "...",
+        "HistGradientBoostingRegressor": "...",
+        "Lasso": "...",
+        "Ridge": "...",
+        "Linear SVC": "...",
+    }
+    for term, definition in model.items():
+        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
 
 
+    st.header("Feature Selection:")
+    selection = {
+        "Logistic Regression": "...",
+        "HistGradientBoostingRegressor": "...",
+        "Lasso": "...",
+        "Ridge": "...",
+        "Linear SVC": "...",
+    }
+    for term, definition in selection.items():
+        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
+
+    st.header("Feature Creation:")
+    creation = {
+        "Logistic Regression": "...",
+        "HistGradientBoostingRegressor": "...",
+        "Lasso": "...",
+        "Ridge": "...",
+        "Linear SVC": "...",
+    }
+    for term, definition in creation.items():
+        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
