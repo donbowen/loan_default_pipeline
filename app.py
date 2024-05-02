@@ -44,7 +44,6 @@ from sklearn.preprocessing import (
     PolynomialFeatures,
     StandardScaler,
     MinMaxScaler,
-    MaxAbsScaler,
     KBinsDiscretizer,
 )
 from sklearn.svm import LinearSVC
@@ -190,7 +189,10 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         else:
             cv_value = st.number_input("Enter the number of folds for RFECV", min_value=2, max_value=10, value=2)
     
-        if 'LogisticRegression' in feature_select:
+        if 'LinearSVC' in feature_select:
+            class_weight = st.selectbox("Select class weight for LinearSVC", ['balanced', None])
+            model = LinearSVC(penalty="l1", dual=False, class_weight=class_weight)
+        elif 'LogisticRegression' in feature_select:
             class_weight = st.selectbox("Select class weight for LogisticRegression", ['balanced', None])
             model = LogisticRegression(class_weight=class_weight)
     
@@ -216,10 +218,8 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         feature_creator = PolynomialFeatures(degree=degree, interaction_only=interaction_only)
     elif feature_create == 'Binning':
         feature_creator = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='uniform')
-    elif feature_create == 'MinMaxScaler':
+    elif feature_create == 'Feature Scaling':
         feature_creator = MinMaxScaler()
-    elif feature_create == 'MaxAbsScaler':
-        feature_creator = MaxAbsScaler()
         
     # I used "Pipeline" not "make_pipeline" bc I wanted to name the steps
     pipe = Pipeline([('columntransformer',preproc_pipe),
@@ -259,12 +259,12 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
                                                                                  'SelectKBest(f_classif)',
                                                                                  'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))',
-                                                                                 
+                                                                                 'RFECV(LinearSVC(penalty="l1", dual=False), scoring=prof_score)',
                                                                                  'RFECV(LogisticRegression, scoring=prof_score)',
                                                                                  'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',])
     
     # Dropdown menu to choose the feature creation method
-    feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'MinMaxScaler', 'MaxAbsScaler'])
+    feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
     
     # If PolynomialFeatures is selected, provide an input field to specify the degree
     if feature_create_method == 'PolynomialFeatures':
@@ -366,8 +366,7 @@ elif st.session_state['current_section'] == 'Dictionary':
     st.write('Interest Rate on the loan.')
 
     st.subheader('loan_amnt')
-    st.write('The listed amount of the loan applied for by the borrower. If at some point in time, the credit department reduces the loan amount, then it will be reflected in this value.
-')
+    st.write('')
 
     st.subheader('mort_acc')
     st.write('')

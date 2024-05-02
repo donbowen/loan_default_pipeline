@@ -51,10 +51,10 @@ import streamlit as st
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
+
+################################ formatting (not totally sure what all of this does) #############################
+
 set_config(display="diagram")  # display='text' is the default
-
-############################################################################################# start of formatting changes
-
 
 # Page config
 st.set_page_config(
@@ -64,7 +64,11 @@ st.set_page_config(
     layout="wide",
 )
 
-############################################################################################# sidebar
+pd.set_option(
+    "display.max_colwidth", 1000, "display.max_rows", 50, "display.max_columns", None
+)
+
+################################################ sidebar ############################################# 
 with st.sidebar:
     if 'current_section' not in st.session_state:
         st.session_state['current_section'] = 'Overview'
@@ -86,11 +90,7 @@ with st.sidebar:
             if st.button(padded_text):
                 st.session_state['current_section'] = section
 
-#############################################################################################
-
-pd.set_option(
-    "display.max_colwidth", 1000, "display.max_rows", 50, "display.max_columns", None
-)
+############################################# load data, scoring, features ################################################
 
 # load data
 
@@ -136,7 +136,8 @@ num_pipe_features = X_train.select_dtypes(include="float64").columns
 cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_train.select_dtypes(include='object').columns
 
 
-##################################################
+################################################## custom model code #################################################
+
 # Function to create a pipeline based on user-selected model and features
 def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None):
     if model_name == 'Logistic Regression':
@@ -228,9 +229,6 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
                 ])
 
     return pipe
-
-
-
 
 ################################################### Overview ########################################################
 
@@ -350,27 +348,27 @@ elif st.session_state['current_section'] == 'Dictionary':
     st.write('A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.')
 
     st.subheader('earliest_cr_line')
+    st.write('The month the borrowers earliest reported credit line was opened')
+
+    st.subheader('emp_length')
+    st.write('Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (5962 or 4.4227% missing fields)')
+
+    st.subheader('fico_range_high')
+    st.write('The upper boundary range the borrower’s FICO at loan origination belongs to.')
+
+    st.subheader('fico_range_low')
+    st.write('The lower boundary range the borrower’s FICO at loan origination belongs to.')
+
+    st.subheader('installment')
+    st.write('The monthly payment owed by the borrower if the loan originates.')
+
+    st.subheader('int_rate')
+    st.write('Interest Rate on the loan.')
+
+    st.subheader('loan_amnt')
     st.write('')
 
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
+    st.subheader('mort_acc')
     st.write('')
 
     st.subheader('')
