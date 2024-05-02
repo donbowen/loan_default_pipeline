@@ -418,9 +418,9 @@ elif st.session_state['current_section'] == 'Leaderboard':
 ################################################### custom model builder ########################################################
 
 elif st.session_state['current_section'] == 'Dictionary':
-    st.title("Dictionary")
-    
-    st.header("Numerical Features:")
+    st.markdown("<h1 style='text-align: center;'>Dictionary</h1>", unsafe_allow_html=True)
+
+    st.markdown("<h2 style='text-align: center;'>Numerical Features:</h2>", unsafe_allow_html=True)
     numerical = {
         "annual_inc": "The self-reported annual income provided by the borrower during registration.",
         "dti": "A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.",
@@ -440,13 +440,13 @@ elif st.session_state['current_section'] == 'Dictionary':
         "total_acc": "The total number of credit lines currently in the borrower's credit file (values range 2-105) (84 different values)",
     }
     for term, definition in numerical.items():
-        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        col1, col2 = st.columns([1, 8])  # Adjust the ratio if needed to accommodate your content
         with col1:
             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
         with col2:
             st.write(definition)
 
-    st.header("Categorical Features:")
+    st.markdown("<h2 style='text-align: center;'>Categorical Features:</h2>", unsafe_allow_html=True)
     categorical = {
         "addr_state": "The state provided by the borrower in the loan application (49 values)",
         "grade": "LC assigned loan grade (7 values: A, B, C, D, E, F, G)",
@@ -460,14 +460,14 @@ elif st.session_state['current_section'] == 'Dictionary':
         "zip_code": "The first 3 numbers of the zip code provided by the borrower in the loan application. (834 values)",
     }
     for term, definition in categorical.items():
-        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        col1, col2 = st.columns([1, 8])  # Adjust the ratio if needed to accommodate your content
         with col1:
             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
         with col2:
             st.write(definition)
 
 
-    st.header("Model:")
+    st.markdown("<h2 style='text-align: center;'>Model:</h2>", unsafe_allow_html=True)
     model = {
         "Logistic Regression": "...",
         "HistGradientBoostingRegressor": "...",
@@ -476,14 +476,14 @@ elif st.session_state['current_section'] == 'Dictionary':
         "Linear SVC": "...",
     }
     for term, definition in model.items():
-        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
         with col1:
             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
         with col2:
             st.write(definition)
 
 
-    st.header("Feature Selection:")
+    st.markdown("<h2 style='text-align: center;'>Feature Selection:</h2>", unsafe_allow_html=True)
     selection = {
         "Logistic Regression": "...",
         "HistGradientBoostingRegressor": "...",
@@ -492,13 +492,13 @@ elif st.session_state['current_section'] == 'Dictionary':
         "Linear SVC": "...",
     }
     for term, definition in selection.items():
-        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
         with col1:
             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
         with col2:
             st.write(definition)
 
-    st.header("Feature Creation:")
+    st.markdown("<h2 style='text-align: center;'>Features Creation:</h2>", unsafe_allow_html=True)
     creation = {
         "Logistic Regression": "...",
         "HistGradientBoostingRegressor": "...",
@@ -507,7 +507,7 @@ elif st.session_state['current_section'] == 'Dictionary':
         "Linear SVC": "...",
     }
     for term, definition in creation.items():
-        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
         with col1:
             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
         with col2:
