@@ -53,7 +53,8 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
 import seaborn as sns
 from sklearn.experimental import enable_hist_gradient_boosting
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix #delete later, replace with effective spare to dense import fix
+
 
 
 ################################ formatting (not totally sure what all of this does) #############################
@@ -190,11 +191,11 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         n_components = int(feature_select.split('(')[1].split(')')[0])
         feature_selector = TruncatedSVD(n_components=n_components)
     elif feature_select.startswith('SelectKBest'):
-        k_range_start = st.number_input("Enter the start of the range for k", min_value=1, max_value=len(num_pipe_features), value=1)
-        k_range_end = st.number_input("Enter the end of the range for k", min_value=k_range_start, max_value=len(num_pipe_features), value=min(len(num_pipe_features), k_range_start + 1))
-        k_step = st.number_input("Enter the step for k", min_value=1, value=1)
-        k_values = list(range(k_range_start, k_range_end+1, k_step))
-    
+        k_range_start = st.number_input("Enter the start of the range for k", min_value=1, max_value=100, value=1)
+        k_range_end = st.number_input("Enter the end of the range for k", min_value=k_range_start, max_value=100, value=min(100, k_range_start + 1))
+        k_step = st.number_input("Enter the step for k", min_value=1, max_value=50, value=1)
+        k_values = list(range(k_range_start, k_range_end + 1, k_step))
+        
         select_kbest_transformers = [SelectKBest(k=k) for k in k_values]
         feature_selector = select_kbest_transformers
     elif feature_select.startswith('SelectFromModel'):
