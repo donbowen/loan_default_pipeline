@@ -321,18 +321,9 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
 
     # Fit the pipeline with the training data
     pipe.fit(X_train, y_train)
-
-    # Assuming pipe is your pipeline
-    X_encoded = pipe.transform(X_train)  # Assuming X_train is your input data
-    
-    # Convert sparse data to dense numpy array after OneHotEncoding
-    X_dense = X_encoded.toarray()
-    
-    # Fit the pipeline with the dense data
-    pipe.fit(X_dense, y_train)
     
     # Get predictions
-    y_pred_train = pipe.predict(X_dense)
+    y_pred_train = pipe.predict(X_train)
 
     if model_name in ["Logistic Regression", "Linear SVC"]:
         # Calculate classification report
