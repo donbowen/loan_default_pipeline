@@ -143,12 +143,17 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 # Function to create a pipeline based on user-selected model and features
 def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None, param_range = None):
     if model_name == 'Logistic Regression':
-        clf = LogisticRegression(class_weight='balanced', penalty=penalty)
+        clf = LogisticRegression(class_weight='balanced', penalty='l2')
     elif model_name == 'Random Forest':
-        max_depth_min = param_range[0][0]
-        max_depth_max = param_range[0][1]
-        clf = RandomForestClassifier(class_weight='balanced', max_depth=(max_depth_min, max_depth_max))
-    # Add more elif statements for other models
+        min_depth, max_depth = param_range
+        possible_max_depths = list(range(min_depth, max_depth + 1))
+        selected_max_depths = st.multiselect("Select max_depth", possible_max_depths)
+        classifiers = []
+        for depth in selected_max_depths:
+            classifiers.append(RandomForestClassifier(class_weight='balanced', max_depth=depth))
+            clf = VotingClassifier(estimators=[('rf_'+str(depth), model) for depth, model in zip(selected_max_depths, classifiers)], voting='hard')
+        else:
+            clf = RandomForestClassifier(class_weight='balanced')
     elif model_name == 'Lasso':
         if param_range is not None:
             alpha_min, alpha_max, alpha_points = param_range
@@ -164,7 +169,7 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         else:
             clf = Ridge()
     elif model_name == 'Linear SVC':
-        clf = LinearSVC(class_weight='balanced', penalty=penalty)
+        clf = LinearSVC(class_weight='balanced', penalty='l2')
     # Preprocessing pipelines for numerical and categorical features
     numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
 
@@ -274,14 +279,27 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         alpha_points = st.number_input("Enter the number of alpha points", min_value=1, max_value=100, value=25)
         param_range = (alpha_min, alpha_max, alpha_points)
     elif model_name in ['Linear SVC', 'Logistic Regression']:
-        penalty = st.selectbox("Select penalty", ['l1', 'l2'])
         C_min = st.number_input("Enter the minimum value for C", min_value=0.0001, max_value=100.0, value=0.0001, step=0.0001)
         C_max = st.number_input("Enter the maximum value for C", min_value=0.0001, max_value=100.0, value=100.0, step=0.0001)
         param_range = [(C_min, C_max)]  # For Linear SVC and Logistic Regression, param_range is a list of tuples
-    elif model_name == 'Random Forest':
-        max_depth_min = st.number_input("Enter the minimum value for max_depth", min_value=1, max_value=100, value=1)
-        max_depth_max = st.number_input("Enter the maximum value for max_depth", min_value=1, max_value=100, value=10)
-        param_range = [(max_depth_min, max_depth_max)]  # For Random Forest, param_range is a list of tuples
+    elif model_name in ['Random Forest']:
+        # Get user input for the range of max_depth
+        max_depth_min = st.number_input("Enter the minimum value for max_depth", min_value=1, max_value=10, value=1)
+        max_depth_max = st.number_input("Enter the maximum value for max_depth", min_value=max_depth_min, max_value=100, value=10)
+        
+        # Assign the range to param_range
+        param_range = (max_depth_min, max_depth_max)
+
+
+    
+        # Generate possible values for max_depth within the specified range
+        possible_max_depths = list(range(max_depth_min, max_depth_max + 1))
+    
+        # Display the possible values to the user for selection
+        selected_max_depths = st.multiselect("Select possible values for max_depth", possible_max_depths)
+    
+        # Update param_range with the selected_max_depths
+        param_range = selected_max_depths
 
 
     
