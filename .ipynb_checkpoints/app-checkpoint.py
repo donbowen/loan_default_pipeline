@@ -12,7 +12,7 @@ from sklearn.compose import (
     make_column_transformer,
 )
 from sklearn.decomposition import PCA
-from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor, VotingRegressor
 from sklearn.feature_selection import (
     RFECV,
     SelectFromModel,
@@ -21,7 +21,7 @@ from sklearn.feature_selection import (
     f_classif,
 )
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import Lasso, LassoCV, LogisticRegression, Ridge
+from sklearn.linear_model import Lasso, LassoCV, LogisticRegression, Ridge, RidgeCV
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     DetCurveDisplay,
@@ -44,12 +44,17 @@ from sklearn.preprocessing import (
     PolynomialFeatures,
     StandardScaler,
     MinMaxScaler,
+    MaxAbsScaler,
     KBinsDiscretizer,
 )
 from sklearn.svm import LinearSVC
 import streamlit as st
 from sklearn.decomposition import TruncatedSVD
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
+import seaborn as sns
+from sklearn.experimental import enable_hist_gradient_boosting
+from scipy.sparse import csr_matrix #delete later, replace with effective spare to dense import fix
+
 
 
 ################################ formatting (not totally sure what all of this does) #############################
@@ -139,18 +144,33 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 ################################################## custom model code #################################################
 
 # Function to create a pipeline based on user-selected model and features
-def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None):
+def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None, param_range = None):
     if model_name == 'Logistic Regression':
-        clf = LogisticRegression(class_weight='balanced')
-    elif model_name == 'Random Forest':
-        clf = RandomForestClassifier(class_weight='balanced')
-    # Add more elif statements for other models
+        clf = LogisticRegression(class_weight='balanced', penalty='l2')
+    elif model_name == 'HistGradientBoostingRegressor':
+        if param_range is not None:
+            learning_rate_min, learning_rate_max = param_range
+            learning_rates = np.linspace(learning_rate_min, learning_rate_max, num=10)  # Adjust num as needed
+            clfs = [(str(lr), HistGradientBoostingRegressor(learning_rate=lr)) for lr in learning_rates]
+            clf = VotingRegressor(clfs)
+        else:
+            clf = HistGradientBoostingRegressor()
     elif model_name == 'Lasso':
-        clf = Lasso(alpha = 0.3)
+        if param_range is not None:
+            alpha_min, alpha_max, alpha_points = param_range
+            alphas = np.linspace(alpha_min, alpha_max, alpha_points)
+            clf = LassoCV(alphas=alphas)
+        else:
+            clf = Lasso(alpha=0.3)
     elif model_name == 'Ridge':
-        clf = Ridge()
+        if param_range is not None:
+            alpha_min, alpha_max, alpha_points = param_range
+            alphas = np.linspace(alpha_min, alpha_max, alpha_points)
+            clf = RidgeCV(alphas=alphas)
+        else:
+            clf = Ridge()
     elif model_name == 'Linear SVC':
-        clf = LinearSVC(class_weight='balanced')
+        clf = LinearSVC(class_weight='balanced', penalty='l2')
     # Preprocessing pipelines for numerical and categorical features
     numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
 
@@ -171,8 +191,13 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         n_components = int(feature_select.split('(')[1].split(')')[0])
         feature_selector = TruncatedSVD(n_components=n_components)
     elif feature_select.startswith('SelectKBest'):
-        k = st.number_input("Enter the number of features for SelectKBest", min_value=1, max_value=len(X_train.columns), value=5)
-        feature_selector = SelectKBest(k=k)
+        k_range_start = st.number_input("Enter the start of the range for k", min_value=1, max_value=100, value=1)
+        k_range_end = st.number_input("Enter the end of the range for k", min_value=k_range_start, max_value=100, value=min(100, k_range_start + 1))
+        k_step = st.number_input("Enter the step for k", min_value=1, max_value=50, value=1)
+        k_values = list(range(k_range_start, k_range_end + 1, k_step))
+        
+        select_kbest_transformers = [SelectKBest(k=k) for k in k_values]
+        feature_selector = select_kbest_transformers
     elif feature_select.startswith('SelectFromModel'):
         if 'LassoCV' in feature_select:
             model = LassoCV()
@@ -189,10 +214,7 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         else:
             cv_value = st.number_input("Enter the number of folds for RFECV", min_value=2, max_value=10, value=2)
     
-        if 'LinearSVC' in feature_select:
-            class_weight = st.selectbox("Select class weight for LinearSVC", ['balanced', None])
-            model = LinearSVC(penalty="l1", dual=False, class_weight=class_weight)
-        elif 'LogisticRegression' in feature_select:
+        if 'LogisticRegression' in feature_select:
             class_weight = st.selectbox("Select class weight for LogisticRegression", ['balanced', None])
             model = LogisticRegression(class_weight=class_weight)
     
@@ -216,10 +238,10 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
     elif feature_create.startswith('PolynomialFeatures'):
         interaction_only = 'interaction_only' in feature_create
         feature_creator = PolynomialFeatures(degree=degree, interaction_only=interaction_only)
-    elif feature_create == 'Binning':
-        feature_creator = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='uniform')
-    elif feature_create == 'Feature Scaling':
+    elif feature_create == 'MinMaxScaler':
         feature_creator = MinMaxScaler()
+    elif feature_create == 'MaxAbsScaler':
+        feature_creator = MaxAbsScaler()
         
     # I used "Pipeline" not "make_pipeline" bc I wanted to name the steps
     pipe = Pipeline([('columntransformer',preproc_pipe),
@@ -252,19 +274,37 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
         
     # Dropdown menu to choose the model
-    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Random Forest', 'Lasso', 'Ridge', 'Linear SVC'])
+    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'HistGradientBoostingRegressor', 'Lasso', 'Ridge', 'Linear SVC'])
     st.write("Selected Model:", model_name)
+
+    # Select hyperparameter range for Lasso, Ridge, Linear SVC, Logistic Regression, and HistGradient models
+    param_range = None
+    if model_name in ['Lasso', 'Ridge']:
+        alpha_min = st.number_input("Enter the minimum alpha", min_value=0.0001, max_value=100.0, value=0.0001, step=0.0001)
+        alpha_max = st.number_input("Enter the maximum alpha", min_value=0.0001, max_value=100.0, value=100.0, step=0.0001)
+        alpha_points = st.number_input("Enter the number of alpha points", min_value=1, max_value=100, value=25)
+        param_range = (alpha_min, alpha_max, alpha_points)
+    elif model_name in ['Linear SVC', 'Logistic Regression']:
+        C_min = st.number_input("Enter the minimum value for C", min_value=0.0001, max_value=100.0, value=0.0001, step=0.0001)
+        C_max = st.number_input("Enter the maximum value for C", min_value=0.0001, max_value=100.0, value=100.0, step=0.0001)
+        param_range = [(C_min, C_max)]  # For Linear SVC and Logistic Regression, param_range is a list of tuples
+    elif model_name in ['HistGradientBoostingRegressor']:
+        learning_rate_min = st.number_input("Enter the minimum value for learning rate", min_value=0.01, max_value=1.0, value=0.1)
+        learning_rate_max = st.number_input("Enter the maximum value for learning rate", min_value=0.01, max_value=1.0, value=0.1)
+        param_range = (learning_rate_min, learning_rate_max)
+
+
     
     # Dropdown menu to choose the feature selection method
     feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
                                                                                  'SelectKBest(f_classif)',
                                                                                  'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))',
-                                                                                 'RFECV(LinearSVC(penalty="l1", dual=False), scoring=prof_score)',
+                                                                                 
                                                                                  'RFECV(LogisticRegression, scoring=prof_score)',
                                                                                  'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',])
     
     # Dropdown menu to choose the feature creation method
-    feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'Binning', 'Feature Scaling'])
+    feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'MinMaxScaler', 'MaxAbsScaler'])
     
     # If PolynomialFeatures is selected, provide an input field to specify the degree
     if feature_create_method == 'PolynomialFeatures':
@@ -273,7 +313,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         degree = None
     
     # Create the pipeline based on the selected model and features
-    pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
+    pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree, param_range)
     
     # Dropdown menu to choose the cross-validation strategy
     cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
@@ -281,43 +321,83 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     # end: user choices
     ##################################################
     
-    # pipe.set_param() # replace the vars eith the vars they want)
-    # pipe.set_param() # replace the model with the model they choose
+    # User choice outputs
     
     pipe
-    
+
+    # Fit the pipeline with the training data
     pipe.fit(X_train, y_train)
     
     # Get predictions
     y_pred_train = pipe.predict(X_train)
+
+    if model_name in ["Logistic Regression", "Linear SVC"]:
+        # Calculate classification report
+        report = classification_report(y_train, y_pred_train, output_dict=True)
+        
+        # Create a formatted classification report string
+        classification_report_str = """
+        Classification Report (Train Data):
+        
+        |        | Precision | Recall | F1-Score | Support |
+        |--------|-----------|--------|----------|---------|
+        | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+        | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+        |--------|-----------|--------|----------|---------|
+        | Accuracy |          |        |   {:.2f}  |         |
+        """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
+                   report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
+                   report["accuracy"])
+        
+        # Display classification report
+        st.markdown(classification_report_str)
+        
+        # Calculate confusion matrix
+        cm = confusion_matrix(y_train, y_pred_train)
+        
+        # Display confusion matrix
+        st.write("Confusion Matrix (Train Data):")
+        confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
+        st.pyplot(confusion_matrix_chart.figure_)
+    else:
+        # Calculate metrics for Regression model
+        mse_train = mean_squared_error(y_train, y_pred_train)
+        rmse_train = np.sqrt(mse_train)
+        r2_train = r2_score(y_train, y_pred_train)
     
-    # Calculate classification report
-    report = classification_report(y_train, y_pred_train, output_dict=True)
+        # Create a formatted regression report string
+        regression_report_str = """
+        Regression Report (Train Data):
     
-    # Create a formatted classification report string
-    classification_report_str = """
-    Classification Report (Train Data):
+        Mean Squared Error: {:.2f}
+        Root Mean Squared Error: {:.2f}
+        R-squared: {:.2f}
+        """.format(mse_train, rmse_train, r2_train)
     
-    |        | Precision | Recall | F1-Score | Support |
-    |--------|-----------|--------|----------|---------|
-    | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-    | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-    |--------|-----------|--------|----------|---------|
-    | Accuracy |          |        |   {:.2f}  |         |
-    """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
-               report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
-               report["accuracy"])
+        # Display regression report
+        st.markdown(regression_report_str)
+        
+        def plot_residuals(y_true, y_pred):
+            # Calculate residuals
+            residuals = y_true - y_pred
+            
+            # Create residual plot
+            plt.figure(figsize=(8, 6))
+            sns.residplot(y_pred, residuals, lowess=True, line_kws={'color': 'red', 'lw': 1})
+            
+            # Set plot labels and title
+            plt.title('Residual Plot')
+            plt.xlabel('Predicted Values')
+            plt.ylabel('Residuals')
+            plt.grid(True)
+            
+            # Show plot
+            st.pyplot()
+
+        #Display residual plot
     
-    # Display classification report
-    st.markdown(classification_report_str)
-    
-    # Calculate confusion matrix
-    cm = confusion_matrix(y_train, y_pred_train)
-    
-    # Display confusion matrix
-    st.write("Confusion Matrix (Train Data):")
-    confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
-    st.pyplot(confusion_matrix_chart.figure_)
+        plot_residuals(y_train, y_pred_train)
+
     
     # Perform cross-validation with custom scoring and additional metrics
     scoring = {'score': prof_score}
@@ -339,57 +419,54 @@ elif st.session_state['current_section'] == 'Leaderboard':
 
 elif st.session_state['current_section'] == 'Dictionary':
     st.title("Dictionary")
+    
     st.header("Numerical Features:")
-    
-    st.subheader("annual_inc")
-    st.write('The self-reported annual income provided by the borrower during registration.')
+    numerical = {
+        "annual_inc": "The self-reported annual income provided by the borrower during registration.",
+        "dti": "A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.",
+        "earliest_cr_line": "The month the borrower's earliest reported credit line was opened",
+        "emp_length": "Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (5962 or 4.4227% missing fields)",
+        "fico_range_high": "The upper boundary range the borrower’s FICO at loan origination belongs to.",
+        "fico_range_low": "The lower boundary range the borrower’s FICO at loan origination belongs to.",
+        "installment": "The monthly payment owed by the borrower if the loan originates.",
+        "int_rate": "Interest Rate on the loan.",
+        "loan_amnt": "The listed amount of the loan applied for by the borrower. If at some point in time, the credit department reduces the loan amount, then it will be reflected in this value.",
+        "mort_acc": "Number of mortgage accounts. (values range from 0-20 and beyond but data gets weird; don’t fully understand what this means)",
+        "open_acc": "The number of open credit lines in the borrower's credit file. (values range 0-62; 54 unique values)",
+        "pub_rec": "Number of derogatory public records (14 values; values range 0-54; 118805 are 0; 14477 are 1)",
+        "pub_rec_bankruptcies": "Number of public record bankruptcies (9 values; values range 0-8; 120491 are 0; 14010 are 1)",
+        "revol_bal": "Total credit revolving balance",
+        "revol_util": "Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit. (1068 different values) (Warning: 78 missing values) (mean value: 58.58)",
+        "total_acc": "The total number of credit lines currently in the borrower's credit file (values range 2-105) (84 different values)",
+    }
+    for term, definition in numerical.items():
+        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
 
-    st.subheader('dti')
-    st.write('A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.')
-
-    st.subheader('earliest_cr_line')
-    st.write('The month the borrowers earliest reported credit line was opened')
-
-    st.subheader('emp_length')
-    st.write('Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (5962 or 4.4227% missing fields)')
-
-    st.subheader('fico_range_high')
-    st.write('The upper boundary range the borrower’s FICO at loan origination belongs to.')
-
-    st.subheader('fico_range_low')
-    st.write('The lower boundary range the borrower’s FICO at loan origination belongs to.')
-
-    st.subheader('installment')
-    st.write('The monthly payment owed by the borrower if the loan originates.')
-
-    st.subheader('int_rate')
-    st.write('Interest Rate on the loan.')
-
-    st.subheader('loan_amnt')
-    st.write('')
-
-    st.subheader('mort_acc')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-    
     st.header("Categorical Features:")
+    categorical = {
+        "addr_state": "The state provided by the borrower in the loan application (49 values)",
+        "grade": "LC assigned loan grade (7 values: A, B, C, D, E, F, G)",
+        "home_ownership": "The home ownership status provided by the borrower during registration or obtained from the credit report. Values: RENT, OWN, MORTGAGE",
+        "initial_list_status": "The initial listing status of the loan. Possible values are – W, F",
+        "issue_d": "The month which the loan was funded (all 12 months in data)",
+        "purpose": "A category provided by the borrower for the loan request (13 values: debt_consolidation, credit_card, home_improvement, other, major_purchase, small_business, car, medical, house, moving, wedding, vacation, renewable_energy) (all >500 except renewable energy (51))",
+        "sub_grade": "LC assigned loan subgrade (35 values: A1, A2,...  …G3, G4, G5)",
+        "term": "The number of payments on the loan. Values are in months and can be either 36 or 60. (36 months or 60 months)",
+        "verification_status": "Indicates if income was verified by LC, not verified, or if the income source was verified (3 values: Verified, Not Verified, Source Verified)",
+        "zip_code": "The first 3 numbers of the zip code provided by the borrower in the loan application. (834 values)",
+    }
+    for term, definition in categorical.items():
+        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
+
+
     st.header("Model:")
 
 

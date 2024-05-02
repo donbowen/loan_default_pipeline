@@ -419,57 +419,54 @@ elif st.session_state['current_section'] == 'Leaderboard':
 
 elif st.session_state['current_section'] == 'Dictionary':
     st.title("Dictionary")
+    
     st.header("Numerical Features:")
-    
-    st.subheader("annual_inc")
-    st.write('The self-reported annual income provided by the borrower during registration.')
+    numerical = {
+        "annual_inc": "The self-reported annual income provided by the borrower during registration.",
+        "dti": "A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.",
+        "earliest_cr_line": "The month the borrower's earliest reported credit line was opened",
+        "emp_length": "Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (5962 or 4.4227% missing fields)",
+        "fico_range_high": "The upper boundary range the borrower’s FICO at loan origination belongs to.",
+        "fico_range_low": "The lower boundary range the borrower’s FICO at loan origination belongs to.",
+        "installment": "The monthly payment owed by the borrower if the loan originates.",
+        "int_rate": "Interest Rate on the loan.",
+        "loan_amnt": "The listed amount of the loan applied for by the borrower. If at some point in time, the credit department reduces the loan amount, then it will be reflected in this value.",
+        "mort_acc": "Number of mortgage accounts. (values range from 0-20 and beyond but data gets weird; don’t fully understand what this means)",
+        "open_acc": "The number of open credit lines in the borrower's credit file. (values range 0-62; 54 unique values)",
+        "pub_rec": "Number of derogatory public records (14 values; values range 0-54; 118805 are 0; 14477 are 1)",
+        "pub_rec_bankruptcies": "Number of public record bankruptcies (9 values; values range 0-8; 120491 are 0; 14010 are 1)",
+        "revol_bal": "Total credit revolving balance",
+        "revol_util": "Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit. (1068 different values) (Warning: 78 missing values) (mean value: 58.58)",
+        "total_acc": "The total number of credit lines currently in the borrower's credit file (values range 2-105) (84 different values)",
+    }
+    for term, definition in numerical.items():
+        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
 
-    st.subheader('dti')
-    st.write('A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.')
-
-    st.subheader('earliest_cr_line')
-    st.write('The month the borrowers earliest reported credit line was opened')
-
-    st.subheader('emp_length')
-    st.write('Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (5962 or 4.4227% missing fields)')
-
-    st.subheader('fico_range_high')
-    st.write('The upper boundary range the borrower’s FICO at loan origination belongs to.')
-
-    st.subheader('fico_range_low')
-    st.write('The lower boundary range the borrower’s FICO at loan origination belongs to.')
-
-    st.subheader('installment')
-    st.write('The monthly payment owed by the borrower if the loan originates.')
-
-    st.subheader('int_rate')
-    st.write('Interest Rate on the loan.')
-
-    st.subheader('loan_amnt')
-    st.write('')
-
-    st.subheader('mort_acc')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-
-    st.subheader('')
-    st.write('')
-    
     st.header("Categorical Features:")
+    categorical = {
+        "addr_state": "The state provided by the borrower in the loan application (49 values)",
+        "grade": "LC assigned loan grade (7 values: A, B, C, D, E, F, G)",
+        "home_ownership": "The home ownership status provided by the borrower during registration or obtained from the credit report. Values: RENT, OWN, MORTGAGE",
+        "initial_list_status": "The initial listing status of the loan. Possible values are – W, F",
+        "issue_d": "The month which the loan was funded (all 12 months in data)",
+        "purpose": "A category provided by the borrower for the loan request (13 values: debt_consolidation, credit_card, home_improvement, other, major_purchase, small_business, car, medical, house, moving, wedding, vacation, renewable_energy) (all >500 except renewable energy (51))",
+        "sub_grade": "LC assigned loan subgrade (35 values: A1, A2,...  …G3, G4, G5)",
+        "term": "The number of payments on the loan. Values are in months and can be either 36 or 60. (36 months or 60 months)",
+        "verification_status": "Indicates if income was verified by LC, not verified, or if the income source was verified (3 values: Verified, Not Verified, Source Verified)",
+        "zip_code": "The first 3 numbers of the zip code provided by the borrower in the loan application. (834 values)",
+    }
+    for term, definition in categorical.items():
+        col1, col2 = st.columns([1, 3])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
+
+
     st.header("Model:")
 
 
