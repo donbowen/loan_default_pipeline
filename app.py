@@ -292,17 +292,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
 
 
     
-        # Generate possible values for max_depth within the specified range
-        possible_max_depths = list(range(max_depth_min, max_depth_max + 1))
-    
-        # Display the possible values to the user for selection
-        selected_max_depths = st.multiselect("Select possible values for max_depth", possible_max_depths)
-    
-        # Update param_range with the selected_max_depths
-        param_range = selected_max_depths
-
-
-    
     # Dropdown menu to choose the feature selection method
     feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
                                                                                  'SelectKBest(f_classif)',
