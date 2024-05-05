@@ -26,6 +26,7 @@ from sklearn.metrics import (
     ConfusionMatrixDisplay,
     DetCurveDisplay,
     PrecisionRecallDisplay,
+    precision_recall_curve,
     RocCurveDisplay,
     classification_report,
     make_scorer,
@@ -477,6 +478,15 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         #Display residual plot
     
         plot_residuals(y_train, y_pred_train)
+
+    # Assuming y_true and y_pred are your true and predicted labels
+    precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
+    
+    # Create a PrecisionRecallDisplay object
+    pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
+    
+    # Display the Precision-Recall curve
+    st.pyplot(pr_display.plot())
 
 
 ################################################### Leaderboard ########################################################
