@@ -152,7 +152,7 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
     if model_name == 'Logistic Regression':
         clf = LogisticRegression(class_weight='balanced', penalty='l2')
     elif model_name == 'HistGradientBoostingClassifier':
-        clf = HistGradientBoostingClassifier()
+        clf = HistGradientBoostingClassifier(class_weight = 'balanced')
     elif model_name == 'Lasso':
         clf = Lasso()
     elif model_name == 'Ridge':
@@ -411,7 +411,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     best_estimator = results.best_estimator_
     y_pred_train = results.predict(X_train)
 
-    if model_name in ["Logistic Regression", "Linear SVC"]:
+    if model_name in ["Logistic Regression", "Linear SVC", "HistGradientBoostingClassifier", "K-Nearest Neighbors", "Decision Tree"]:
         # Calculate classification report
         report = classification_report(y_train, y_pred_train, output_dict=True)
         
