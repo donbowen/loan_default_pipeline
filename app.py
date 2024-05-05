@@ -12,7 +12,7 @@ from sklearn.compose import (
     make_column_transformer,
 )
 from sklearn.decomposition import PCA
-from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor, VotingRegressor
+from sklearn.ensemble import HistGradientBoostingClassifier, VotingRegressor
 from sklearn.feature_selection import (
     RFECV,
     SelectFromModel,
@@ -55,6 +55,9 @@ from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
 import seaborn as sns
 from sklearn.experimental import enable_hist_gradient_boosting
 from scipy.sparse import csr_matrix #delete later, replace with effective spare to dense import fix
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+
 
 
 
@@ -148,14 +151,18 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None):
     if model_name == 'Logistic Regression':
         clf = LogisticRegression(class_weight='balanced', penalty='l2')
-    elif model_name == 'HistGradientBoostingRegressor':
-        clf = HistGradientBoostingRegressor()
+    elif model_name == 'HistGradientBoostingClassifier':
+        clf = HistGradientBoostingClassifier()
     elif model_name == 'Lasso':
-        clf = Lasso(alpha=0.3)
+        clf = Lasso()
     elif model_name == 'Ridge':
         clf = Ridge()
     elif model_name == 'Linear SVC':
         clf = LinearSVC(class_weight='balanced', penalty='l2')
+    elif model_name == 'K-Nearest Neighbors':
+        clf = KNeighborsClassifier(weights='uniform')
+    elif model_name == 'Decision Tree':
+        clf = DecisionTreeClassifier(class_weight = 'balanced')
     # Preprocessing pipelines for numerical and categorical features
     numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
 
@@ -246,7 +253,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
         
     # Dropdown menu to choose the model
-    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'HistGradientBoostingRegressor', 'Lasso', 'Ridge', 'Linear SVC'])
+    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'HistGradientBoostingClassifier', 'Lasso', 'Ridge', 'Linear SVC', 'K-Nearest Neighbors', 'Decision Tree'])
 
     # Dropdown menu to choose the feature selection method
     feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA',
@@ -271,16 +278,24 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         C_min = st.slider('C - Min Value', min_value=0.1, max_value=10.0, value=1.0)
         C_max = st.slider('C - Max Value', min_value=0.1, max_value=10.0, value=5.0)
         hyperparameter_ranges['C'] = np.linspace(C_min, C_max, num=10) 
-    elif model_name in ['HistGradientBoostingRegressor']:
-        max_depth_min = st.slider('HistGradientBoostingRegressor - Min Max Depth', min_value=1, max_value=20, value=3)
-        max_depth_max = st.slider('HistGradientBoostingRegressor - Max Max Depth', min_value=1, max_value=20, value=12)
-        max_depth_step = st.slider('HistGradientBoostingRegressor - Step Size', min_value=1, max_value=10, value=1)
-        max_depth_values = np.arange(max_depth_min, max_depth_max + 1, max_depth_step)
-        hyperparameter_ranges['max_depth'] = max_depth_values   
+    elif model_name == 'HistGradientBoostingClassifier':
+        max_depth_min = st.slider('HistGradientBoostingClassifier - Min Max Depth', min_value=1, max_value=20, value=3)
+        max_depth_max = st.slider('HistGradientBoostingClassifier - Max Max Depth', min_value=1, max_value=20, value=12)
+        max_depth_step = st.slider('HistGradientBoostingClassifier - Step Size', min_value=1, max_value=10, value=1)
+        max_depth_values = list(range(max_depth_min, max_depth_max + 1, max_depth_step))
+        hyperparameter_ranges['max_depth'] = max_depth_values 
     elif model_name in ['Lasso', 'Ridge']:
         alpha_min = st.slider('Alpha - Min Value', min_value=0.1, max_value=10.0, value=1.0)
         alpha_max = st.slider('Alpha - Max Value', min_value=0.1, max_value=10.0, value=5.0)
-        hyperparameter_ranges['alpha'] = np.linspace(alpha_min, alpha_max, num=10)    
+        hyperparameter_ranges['alpha'] = np.linspace(alpha_min, alpha_max, num=10)
+    elif model_name == 'K-Nearest Neighbors':
+        n_neighbors_min = st.slider('Number of Neighbors - Min Value', min_value=1, max_value=20, value=3)
+        n_neighbors_max = st.slider('Number of Neighbors - Max Value', min_value=1, max_value=20, value=10)
+        hyperparameter_ranges['n_neighbors'] = list(range(n_neighbors_min, n_neighbors_max + 1))
+    elif model_name == 'Decision Tree':
+        min_split_min = st.slider('Min Samples Split - Min Value', min_value=2, max_value=50, value=2)
+        min_split_max = st.slider('Min Samples Split - Max Value', min_value=2, max_value=50, value=10)
+        hyperparameter_ranges['min_samples_split'] = list(range(min_split_min, min_split_max + 1))
         
     if feature_select_method in ['SelectKBest(f_classif)']:
         selectkbest_k_min = st.slider('SelectKBest - Min K', min_value=1, max_value=50, value=5)
@@ -341,10 +356,14 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         
         if model in ['Logistic Regression', 'Linear SVC']:
             param_grid['clf__C'] = hyperparameter_ranges['C']
-        elif model in ['HistGradientBoostingRegressor']:
+        elif model in ['HistGradientBoostingClassifier']:
             param_grid['clf__max_depth'] = hyperparameter_ranges['max_depth']
         elif model in ['Lasso', 'Ridge']:
             param_grid['clf__alpha'] = hyperparameter_ranges['alpha']
+        elif model == 'K-Nearest Neighbors':
+            param_grid['clf__n_neighbors'] = hyperparameter_ranges['n_neighbors']
+        elif model == 'Decision Tree':
+            param_grid['clf__min_samples_split'] = hyperparameter_ranges['min_samples_split']
         
         return param_grid
     
@@ -353,7 +372,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     param_grid = construct_param_grid(feature_select_method, model_name, hyperparameter_ranges)
 
     st.write(param_grid)
-
+    
     grid_search = GridSearchCV(estimator = pipe, 
                            param_grid = param_grid,
                            cv = cv,
