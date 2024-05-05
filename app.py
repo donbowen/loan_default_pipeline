@@ -36,6 +36,7 @@ from sklearn.model_selection import (
     cross_validate,
     train_test_split,
     cross_val_score,
+    check_cv,
 )
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import (
@@ -102,6 +103,7 @@ with st.sidebar:
 loans = pd.read_csv("inputs/final_2013_subsample.csv")
 
 # drop some bad columns here, or in the pipeline
+loans = loans.drop("id", axis = 1)
 
 # loans = loans.drop(
 #     ["member_id", "id", "desc", "earliest_cr_line", "emp_title", "issue_d"], axis=1
@@ -113,13 +115,12 @@ y = loans.loan_status == "Charged Off"
 y.value_counts()
 loans = loans.drop("loan_status", axis=1)
 
+
 X_train, X_test, y_train, y_test = train_test_split(
     loans, y, stratify=y, test_size=0.2, random_state=0
 )  # (stratify will make sure that test/train both have equal fractions of outcome)
 
 # define the profit function
-
-
 def custom_prof_score(y, y_pred, roa=0.02, haircut=0.20):
     """
     Firm profit is this times the average loan size. We can
@@ -158,7 +159,7 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
     # Preprocessing pipelines for numerical and categorical features
     numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
 
-    cat_pipe = make_pipeline(OneHotEncoder())
+    cat_pipe = make_pipeline(OneHotEncoder(handle_unknown='ignore'))
     
     # Preprocessing pipeline for the entire dataset
     # didn't use make_column_transformer; wanted to name steps
@@ -310,7 +311,10 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
     
     # Dropdown menu to choose the cross-validation strategy
-    cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+    num_folds = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+
+    # Define your cross-validation strategy based on the user input
+    cv = KFold(n_splits=num_folds, shuffle=True, random_state=42)
     
     # end: user choices
     ##################################################
@@ -318,9 +322,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     # User choice outputs
     
     pipe
-
-    # Fit the pipeline with the training data
-    pipe.fit(X_train, y_train)
 
     param_grid = {}
 
@@ -340,7 +341,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         
         if model in ['Logistic Regression', 'Linear SVC']:
             param_grid['clf__C'] = hyperparameter_ranges['C']
-        elif model == 'HistGradientBoostingRegressor':
+        elif model in ['HistGradientBoostingRegressor']:
             param_grid['clf__max_depth'] = hyperparameter_ranges['max_depth']
         elif model in ['Lasso', 'Ridge']:
             param_grid['clf__alpha'] = hyperparameter_ranges['alpha']
@@ -356,12 +357,36 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     grid_search = GridSearchCV(estimator = pipe, 
                            param_grid = param_grid,
                            cv = cv,
-                           scoring=prof_score, 
+                           scoring= prof_score, 
+                           error_score="raise",
                            )
 
-    results = grid_search.fit(X_train, y_train)
+    # Fit the grid search to your data
+    try:
+        results = grid_search.fit(X_train, y_train)
+    except Exception as e:
+        # Report the resulting error traceback
+        st.write("An error occurred during grid search fitting:")
+        st.write(e)
+        
     output_df = pd.DataFrame(results.cv_results_).set_index('params').fillna('')
     st.write(output_df)
+
+    # Create a new figure and axis object using Matplotlib's object-oriented interface
+    fig, ax = plt.subplots()
+    
+    # Plot the scatter plot
+    scatter = ax.scatter(output_df['std_test_score'], output_df['mean_test_score'], color='blue')
+    ax.scatter(output_df['std_test_score'][0], output_df['mean_test_score'][0], color='red')
+    
+    # Set the plot title and labels
+    ax.set_title("Mean vs STD of CV Test Scores")
+    ax.set_ylabel("Mean Test Score")
+    ax.set_xlabel("STD Test Score")
+    
+    # Show the plot
+    st.pyplot(fig)
+
 
     # Get the best estimator and predictions
     best_estimator = results.best_estimator_
@@ -437,104 +462,104 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
 
 ################################################### Leaderboard ########################################################
 
-# elif st.session_state['current_section'] == 'Leaderboard':
-#     st.title("Leaderboard")
-#     st.header("Hopefully this isn't too hard because it will probably be the last thing we do")
+elif st.session_state['current_section'] == 'Leaderboard':
+    st.title("Leaderboard")
+    st.header("Hopefully this isn't too hard because it will probably be the last thing we do")
 
-# ################################################### custom model builder ########################################################
+################################################### custom model builder ########################################################
 
-# elif st.session_state['current_section'] == 'Dictionary':
-#     st.markdown("<h1 style='text-align: center;'>Dictionary</h1>", unsafe_allow_html=True)
+elif st.session_state['current_section'] == 'Dictionary':
+    st.markdown("<h1 style='text-align: center;'>Dictionary</h1>", unsafe_allow_html=True)
 
-#     st.markdown("<h2 style='text-align: center;'>Numerical Features:</h2>", unsafe_allow_html=True)
-#     numerical = {
-#         "annual_inc": "The self-reported annual income provided by the borrower during registration.",
-#         "dti": "A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.",
-#         "earliest_cr_line": "The month the borrower's earliest reported credit line was opened",
-#         "emp_length": "Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (5962 or 4.4227% missing fields)",
-#         "fico_range_high": "The upper boundary range the borrower’s FICO at loan origination belongs to.",
-#         "fico_range_low": "The lower boundary range the borrower’s FICO at loan origination belongs to.",
-#         "installment": "The monthly payment owed by the borrower if the loan originates.",
-#         "int_rate": "Interest Rate on the loan.",
-#         "loan_amnt": "The listed amount of the loan applied for by the borrower. If at some point in time, the credit department reduces the loan amount, then it will be reflected in this value.",
-#         "mort_acc": "Number of mortgage accounts. (values range from 0-20 and beyond but data gets weird; don’t fully understand what this means)",
-#         "open_acc": "The number of open credit lines in the borrower's credit file. (values range 0-62; 54 unique values)",
-#         "pub_rec": "Number of derogatory public records (14 values; values range 0-54; 118805 are 0; 14477 are 1)",
-#         "pub_rec_bankruptcies": "Number of public record bankruptcies (9 values; values range 0-8; 120491 are 0; 14010 are 1)",
-#         "revol_bal": "Total credit revolving balance",
-#         "revol_util": "Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit. (1068 different values) (Warning: 78 missing values) (mean value: 58.58)",
-#         "total_acc": "The total number of credit lines currently in the borrower's credit file (values range 2-105) (84 different values)",
-#     }
-#     for term, definition in numerical.items():
-#         col1, col2 = st.columns([1, 8])  # Adjust the ratio if needed to accommodate your content
-#         with col1:
-#             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
-#         with col2:
-#             st.write(definition)
+    st.markdown("<h2 style='text-align: center;'>Numerical Features:</h2>", unsafe_allow_html=True)
+    numerical = {
+        "annual_inc": "The self-reported annual income provided by the borrower during registration.",
+        "dti": "A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.",
+        "earliest_cr_line": "The month the borrower's earliest reported credit line was opened",
+        "emp_length": "Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (5962 or 4.4227% missing fields)",
+        "fico_range_high": "The upper boundary range the borrower’s FICO at loan origination belongs to.",
+        "fico_range_low": "The lower boundary range the borrower’s FICO at loan origination belongs to.",
+        "installment": "The monthly payment owed by the borrower if the loan originates.",
+        "int_rate": "Interest Rate on the loan.",
+        "loan_amnt": "The listed amount of the loan applied for by the borrower. If at some point in time, the credit department reduces the loan amount, then it will be reflected in this value.",
+        "mort_acc": "Number of mortgage accounts. (values range from 0-20 and beyond but data gets weird; don’t fully understand what this means)",
+        "open_acc": "The number of open credit lines in the borrower's credit file. (values range 0-62; 54 unique values)",
+        "pub_rec": "Number of derogatory public records (14 values; values range 0-54; 118805 are 0; 14477 are 1)",
+        "pub_rec_bankruptcies": "Number of public record bankruptcies (9 values; values range 0-8; 120491 are 0; 14010 are 1)",
+        "revol_bal": "Total credit revolving balance",
+        "revol_util": "Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit. (1068 different values) (Warning: 78 missing values) (mean value: 58.58)",
+        "total_acc": "The total number of credit lines currently in the borrower's credit file (values range 2-105) (84 different values)",
+    }
+    for term, definition in numerical.items():
+        col1, col2 = st.columns([1, 8])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
 
-#     st.markdown("<h2 style='text-align: center;'>Categorical Features:</h2>", unsafe_allow_html=True)
-#     categorical = {
-#         "addr_state": "The state provided by the borrower in the loan application (49 values)",
-#         "grade": "LC assigned loan grade (7 values: A, B, C, D, E, F, G)",
-#         "home_ownership": "The home ownership status provided by the borrower during registration or obtained from the credit report. Values: RENT, OWN, MORTGAGE",
-#         "initial_list_status": "The initial listing status of the loan. Possible values are – W, F",
-#         "issue_d": "The month which the loan was funded (all 12 months in data)",
-#         "purpose": "A category provided by the borrower for the loan request (13 values: debt_consolidation, credit_card, home_improvement, other, major_purchase, small_business, car, medical, house, moving, wedding, vacation, renewable_energy) (all >500 except renewable energy (51))",
-#         "sub_grade": "LC assigned loan subgrade (35 values: A1, A2,...  …G3, G4, G5)",
-#         "term": "The number of payments on the loan. Values are in months and can be either 36 or 60. (36 months or 60 months)",
-#         "verification_status": "Indicates if income was verified by LC, not verified, or if the income source was verified (3 values: Verified, Not Verified, Source Verified)",
-#         "zip_code": "The first 3 numbers of the zip code provided by the borrower in the loan application. (834 values)",
-#     }
-#     for term, definition in categorical.items():
-#         col1, col2 = st.columns([1, 8])  # Adjust the ratio if needed to accommodate your content
-#         with col1:
-#             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
-#         with col2:
-#             st.write(definition)
-
-
-#     st.markdown("<h2 style='text-align: center;'>Model:</h2>", unsafe_allow_html=True)
-#     model = {
-#         "Logistic Regression": "...",
-#         "HistGradientBoostingRegressor": "...",
-#         "Lasso": "...",
-#         "Ridge": "...",
-#         "Linear SVC": "...",
-#     }
-#     for term, definition in model.items():
-#         col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
-#         with col1:
-#             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
-#         with col2:
-#             st.write(definition)
+    st.markdown("<h2 style='text-align: center;'>Categorical Features:</h2>", unsafe_allow_html=True)
+    categorical = {
+        "addr_state": "The state provided by the borrower in the loan application (49 values)",
+        "grade": "LC assigned loan grade (7 values: A, B, C, D, E, F, G)",
+        "home_ownership": "The home ownership status provided by the borrower during registration or obtained from the credit report. Values: RENT, OWN, MORTGAGE",
+        "initial_list_status": "The initial listing status of the loan. Possible values are – W, F",
+        "issue_d": "The month which the loan was funded (all 12 months in data)",
+        "purpose": "A category provided by the borrower for the loan request (13 values: debt_consolidation, credit_card, home_improvement, other, major_purchase, small_business, car, medical, house, moving, wedding, vacation, renewable_energy) (all >500 except renewable energy (51))",
+        "sub_grade": "LC assigned loan subgrade (35 values: A1, A2,...  …G3, G4, G5)",
+        "term": "The number of payments on the loan. Values are in months and can be either 36 or 60. (36 months or 60 months)",
+        "verification_status": "Indicates if income was verified by LC, not verified, or if the income source was verified (3 values: Verified, Not Verified, Source Verified)",
+        "zip_code": "The first 3 numbers of the zip code provided by the borrower in the loan application. (834 values)",
+    }
+    for term, definition in categorical.items():
+        col1, col2 = st.columns([1, 8])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
 
 
-#     st.markdown("<h2 style='text-align: center;'>Feature Selection:</h2>", unsafe_allow_html=True)
-#     selection = {
-#         "Logistic Regression": "...",
-#         "HistGradientBoostingRegressor": "...",
-#         "Lasso": "...",
-#         "Ridge": "...",
-#         "Linear SVC": "...",
-#     }
-#     for term, definition in selection.items():
-#         col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
-#         with col1:
-#             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
-#         with col2:
-#             st.write(definition)
+    st.markdown("<h2 style='text-align: center;'>Model:</h2>", unsafe_allow_html=True)
+    model = {
+        "Logistic Regression": "...",
+        "HistGradientBoostingRegressor": "...",
+        "Lasso": "...",
+        "Ridge": "...",
+        "Linear SVC": "...",
+    }
+    for term, definition in model.items():
+        col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
 
-#     st.markdown("<h2 style='text-align: center;'>Features Creation:</h2>", unsafe_allow_html=True)
-#     creation = {
-#         "Logistic Regression": "...",
-#         "HistGradientBoostingRegressor": "...",
-#         "Lasso": "...",
-#         "Ridge": "...",
-#         "Linear SVC": "...",
-#     }
-#     for term, definition in creation.items():
-#         col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
-#         with col1:
-#             st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
-#         with col2:
-#             st.write(definition)
+
+    st.markdown("<h2 style='text-align: center;'>Feature Selection:</h2>", unsafe_allow_html=True)
+    selection = {
+        "Logistic Regression": "...",
+        "HistGradientBoostingRegressor": "...",
+        "Lasso": "...",
+        "Ridge": "...",
+        "Linear SVC": "...",
+    }
+    for term, definition in selection.items():
+        col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
+
+    st.markdown("<h2 style='text-align: center;'>Features Creation:</h2>", unsafe_allow_html=True)
+    creation = {
+        "Logistic Regression": "...",
+        "HistGradientBoostingRegressor": "...",
+        "Lasso": "...",
+        "Ridge": "...",
+        "Linear SVC": "...",
+    }
+    for term, definition in creation.items():
+        col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
+        with col1:
+            st.markdown(f"<div style='text-align: right; font-weight: bold;'>{term}</div>", unsafe_allow_html=True)
+        with col2:
+            st.write(definition)
