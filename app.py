@@ -423,6 +423,8 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         st.write("An error occurred during grid search fitting:")
         st.write(e)
         
+    st.write("\n" * 5)
+    st.markdown("<h1 style='text-align: center;'>Ranking CV Test Scores by Mean and SD </h1>", unsafe_allow_html=True)
     output_df = pd.DataFrame(results.cv_results_).set_index('params').fillna('')
     st.write(output_df)
 
@@ -451,21 +453,58 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         report = classification_report(y_train, y_pred_train, output_dict=True)
         
         # Create a formatted classification report string
-        classification_report_str = """
-        Classification Report (Train Data):
+        # classification_report_str = """
+
+       #     |          | Precision | Recall | F1-Score | Support |
+       #     |----------|-----------|--------|----------|---------|
+       #     | False    |   {:.4f}  | {:.4f} |   {:.4f} |   {:<6} |         # Replaced with centered format below
+       #     | True     |   {:.4f}  | {:.4f} |   {:.4f} |   {:<6} |
+       #     | Accuracy |           |        |   {:.4f} |         |
+      #  """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
+      #             report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
+       #            report["accuracy"])
         
-        |        | Precision | Recall | F1-Score | Support |
-        |--------|-----------|--------|----------|---------|
-        | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-        | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-        |--------|-----------|--------|----------|---------|
-        | Accuracy |          |        |   {:.2f}  |         |
-        """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
-                   report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
-                   report["accuracy"])
+      #  st.markdown(report['accuracy'])
+
+        classification_report_str = f"""
+        <div style="text-align: center; width: 100%;">
+            <table style="margin-left: auto; margin-right: auto;">
+                <tr>
+                    <th></th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>F1-Score</th>
+                    <th>Support</th>
+                </tr>
+                <tr>
+                    <td>False</td>
+                    <td>{report["False"]["precision"]:.4f}</td>
+                    <td>{report["False"]["recall"]:.4f}</td>
+                    <td>{report["False"]["f1-score"]:.4f}</td>
+                    <td>{report["False"]["support"]}</td>
+                </tr>
+                <tr>
+                    <td>True</td>
+                    <td>{report["True"]["precision"]:.4f}</td>
+                    <td>{report["True"]["recall"]:.4f}</td>
+                    <td>{report["True"]["f1-score"]:.4f}</td>
+                    <td>{report["True"]["support"]}</td>
+                </tr>
+                <tr>
+                    <td>Accuracy</td>
+                    <td></td>
+                    <td></td>
+                    <td>{report["accuracy"]:.4f}</td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+    """
         
         # Display classification report
-        st.markdown(classification_report_str)
+        st.write("\n" * 5)
+        st.markdown("<h1 style='text-align: center;'>Classification Report</h1>", unsafe_allow_html=True)
+        st.markdown(classification_report_str, unsafe_allow_html=True)
 
         # Assuming y_true_train and y_pred_train are your true and predicted labels for the training set
         precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
@@ -488,13 +527,16 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         plt.savefig('precision_recall_curve.png')
         
         # Display the plot in Streamlit
+        st.write("\n" * 5)
+        st.markdown("<h1 style='text-align: center;'>Precision Recall</h1>", unsafe_allow_html=True)
         st.image('precision_recall_curve.png')
         
         # Calculate confusion matrix
         cm = confusion_matrix(y_train, y_pred_train)
         
         # Display confusion matrix
-        st.write("Confusion Matrix (Train Data):")
+        st.write("\n" * 5)
+        st.markdown("<h1 style='text-align: center;'>Confusion Matrix</h1>", unsafe_allow_html=True)
         confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
         st.pyplot(confusion_matrix_chart.figure_)
 
