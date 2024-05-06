@@ -387,9 +387,8 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     cv = KFold(n_splits=num_folds, shuffle=True, random_state=42)
     
     # end: user choices
-    ##################################################
-    
-    # User choice outputs
+    ##################################################################################################################################
+    # start: outputs
     
     pipe
 
@@ -442,6 +441,8 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         # Report the resulting error traceback
         st.write("An error occurred during grid search fitting:")
         st.write(e)
+
+    
         
     output_df = pd.DataFrame(results.cv_results_).set_index('params').fillna('')
     st.write(output_df)
@@ -534,14 +535,28 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     
         plot_residuals(y_train, y_pred_train)
 
-    # Assuming y_true and y_pred are your true and predicted labels
+    # Assuming y_true_train and y_pred_train are your true and predicted labels for the training set
     precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
     
     # Create a PrecisionRecallDisplay object
     pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
     
-    # Display the Precision-Recall curve
-    st.pyplot(pr_display.plot())
+    # Create a new figure and axis object using Matplotlib's object-oriented interface
+    fig, ax = plt.subplots()
+    
+    # Plot the Precision-Recall curve on the specified axis
+    pr_display.plot(ax=ax)
+    
+    # Set labels and title
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Precision')
+    ax.set_title('Precision-Recall Curve')
+    
+    # Save the figure to a file
+    plt.savefig('precision_recall_curve.png')
+    
+    # Display the plot in Streamlit
+    st.image('precision_recall_curve.png')
 
 
 ################################################### Leaderboard ########################################################
