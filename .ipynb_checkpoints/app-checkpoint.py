@@ -474,12 +474,13 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         classification_report_str = """
         Classification Report (Train Data):
         
-        |        | Precision | Recall | F1-Score | Support |
-        |--------|-----------|--------|----------|---------|
-        | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-        | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-        |--------|-----------|--------|----------|---------|
-        | Accuracy |          |        |   {:.2f}  |         |
+        |          | Precision | Recall | F1-Score | Support |
+        |----------|-----------|--------|----------|---------|
+        |   False  |   {:.2f}  | {:.2f} | {:.2f}   |  {:<6}  |
+        |   True   |   {:.2f}  | {:.2f} | {:.2f}   |  {:<6}  |
+        |----------|-----------|--------|----------|---------|
+        | Accuracy |           |        |  {:.2f}  |         |
+        
         """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
                    report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
                    report["accuracy"])

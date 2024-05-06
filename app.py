@@ -387,9 +387,8 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     cv = KFold(n_splits=num_folds, shuffle=True, random_state=42)
     
     # end: user choices
-    ##################################################
-    
-    # User choice outputs
+    ##################################################################################################################################
+    # start: outputs
     
     pipe
 
@@ -442,6 +441,8 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         # Report the resulting error traceback
         st.write("An error occurred during grid search fitting:")
         st.write(e)
+
+    
         
     output_df = pd.DataFrame(results.cv_results_).set_index('params').fillna('')
     st.write(output_df)
@@ -474,12 +475,13 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         classification_report_str = """
         Classification Report (Train Data):
         
-        |        | Precision | Recall | F1-Score | Support |
-        |--------|-----------|--------|----------|---------|
-        | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-        | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
-        |--------|-----------|--------|----------|---------|
-        | Accuracy |          |        |   {:.2f}  |         |
+        |          | Precision | Recall | F1-Score | Support |
+        |----------|-----------|--------|----------|---------|
+        |   False  |   {:.2f}  | {:.2f} | {:.2f}   |  {:<6}  |
+        |   True   |   {:.2f}  | {:.2f} | {:.2f}   |  {:<6}  |
+        |----------|-----------|--------|----------|---------|
+        | Accuracy |           |        |  {:.2f}  |         |
+        
         """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
                    report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
                    report["accuracy"])
