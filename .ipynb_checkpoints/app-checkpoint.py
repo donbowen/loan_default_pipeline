@@ -12,7 +12,7 @@ from sklearn.compose import (
     make_column_transformer,
 )
 from sklearn.decomposition import PCA
-from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor, VotingRegressor
+from sklearn.ensemble import HistGradientBoostingClassifier, VotingRegressor
 from sklearn.feature_selection import (
     RFECV,
     SelectFromModel,
@@ -26,6 +26,7 @@ from sklearn.metrics import (
     ConfusionMatrixDisplay,
     DetCurveDisplay,
     PrecisionRecallDisplay,
+    precision_recall_curve,
     RocCurveDisplay,
     classification_report,
     make_scorer,
@@ -36,6 +37,7 @@ from sklearn.model_selection import (
     cross_validate,
     train_test_split,
     cross_val_score,
+    check_cv,
 )
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import (
@@ -54,6 +56,9 @@ from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
 import seaborn as sns
 from sklearn.experimental import enable_hist_gradient_boosting
 from scipy.sparse import csr_matrix #delete later, replace with effective spare to dense import fix
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+
 
 
 
@@ -102,6 +107,7 @@ with st.sidebar:
 loans = pd.read_csv("inputs/final_2013_subsample.csv")
 
 # drop some bad columns here, or in the pipeline
+loans = loans.drop("id", axis = 1)
 
 # loans = loans.drop(
 #     ["member_id", "id", "desc", "earliest_cr_line", "emp_title", "issue_d"], axis=1
@@ -113,13 +119,12 @@ y = loans.loan_status == "Charged Off"
 y.value_counts()
 loans = loans.drop("loan_status", axis=1)
 
+
 X_train, X_test, y_train, y_test = train_test_split(
     loans, y, stratify=y, test_size=0.2, random_state=0
 )  # (stratify will make sure that test/train both have equal fractions of outcome)
 
 # define the profit function
-
-
 def custom_prof_score(y, y_pred, roa=0.02, haircut=0.20):
     """
     Firm profit is this times the average loan size. We can
@@ -144,37 +149,25 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 ################################################## custom model code #################################################
 
 # Function to create a pipeline based on user-selected model and features
-def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None, param_range = None):
+def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None):
     if model_name == 'Logistic Regression':
         clf = LogisticRegression(class_weight='balanced', penalty='l2')
-    elif model_name == 'HistGradientBoostingRegressor':
-        if param_range is not None:
-            learning_rate_min, learning_rate_max = param_range
-            learning_rates = np.linspace(learning_rate_min, learning_rate_max, num=10)  # Adjust num as needed
-            clfs = [(str(lr), HistGradientBoostingRegressor(learning_rate=lr)) for lr in learning_rates]
-            clf = VotingRegressor(clfs)
-        else:
-            clf = HistGradientBoostingRegressor()
+    elif model_name == 'HistGradientBoostingClassifier':
+        clf = HistGradientBoostingClassifier(class_weight = 'balanced')
     elif model_name == 'Lasso':
-        if param_range is not None:
-            alpha_min, alpha_max, alpha_points = param_range
-            alphas = np.linspace(alpha_min, alpha_max, alpha_points)
-            clf = LassoCV(alphas=alphas)
-        else:
-            clf = Lasso(alpha=0.3)
+        clf = Lasso()
     elif model_name == 'Ridge':
-        if param_range is not None:
-            alpha_min, alpha_max, alpha_points = param_range
-            alphas = np.linspace(alpha_min, alpha_max, alpha_points)
-            clf = RidgeCV(alphas=alphas)
-        else:
-            clf = Ridge()
+        clf = Ridge()
     elif model_name == 'Linear SVC':
         clf = LinearSVC(class_weight='balanced', penalty='l2')
+    elif model_name == 'K-Nearest Neighbors':
+        clf = KNeighborsClassifier(weights='uniform')
+    elif model_name == 'Decision Tree':
+        clf = DecisionTreeClassifier(class_weight = 'balanced')
     # Preprocessing pipelines for numerical and categorical features
     numer_pipe = make_pipeline(SimpleImputer(strategy="mean"), StandardScaler())
 
-    cat_pipe = make_pipeline(OneHotEncoder())
+    cat_pipe = make_pipeline(OneHotEncoder(handle_unknown='ignore'))
     
     # Preprocessing pipeline for the entire dataset
     # didn't use make_column_transformer; wanted to name steps
@@ -191,43 +184,29 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
         n_components = int(feature_select.split('(')[1].split(')')[0])
         feature_selector = TruncatedSVD(n_components=n_components)
     elif feature_select.startswith('SelectKBest'):
-        k_range_start = st.number_input("Enter the start of the range for k", min_value=1, max_value=100, value=1)
-        k_range_end = st.number_input("Enter the end of the range for k", min_value=k_range_start, max_value=100, value=min(100, k_range_start + 1))
-        k_step = st.number_input("Enter the step for k", min_value=1, max_value=50, value=1)
-        k_values = list(range(k_range_start, k_range_end + 1, k_step))
-        
-        select_kbest_transformers = [SelectKBest(k=k) for k in k_values]
-        feature_selector = select_kbest_transformers
+        feature_selector = SelectKBest(score_func=f_classif)
     elif feature_select.startswith('SelectFromModel'):
         if 'LassoCV' in feature_select:
             model = LassoCV()
+            feature_selector = SelectFromModel(model)
         elif 'LinearSVC' in feature_select:
             class_weight = st.selectbox("Select class weight for LinearSVC", ['balanced', None])
-            model = LinearSVC(penalty="l1", dual=False, class_weight=class_weight)
-        threshold = st.number_input("Enter the threshold for SelectFromModel", min_value=0.0, max_value=1.0, value=0.5)
-        feature_selector = SelectFromModel(model, threshold=threshold)
-    elif feature_select.startswith('RFECV'):
-        model = None
-        cv_index = feature_select.find('cv=')
-        if cv_index != -1:  # If 'cv=' is found in the string
-            cv_value = int(feature_select[cv_index:].split(',')[0].split('=')[1])
-        else:
-            cv_value = st.number_input("Enter the number of folds for RFECV", min_value=2, max_value=10, value=2)
-    
+            model = LinearSVC(penalty="l2", dual=False, class_weight=class_weight)
+            feature_selector = SelectFromModel(model)
+    elif feature_select.startswith('RFECV'):    
         if 'LogisticRegression' in feature_select:
             class_weight = st.selectbox("Select class weight for LogisticRegression", ['balanced', None])
             model = LogisticRegression(class_weight=class_weight)
     
-        feature_selector = RFECV(model, cv=cv_value, scoring=prof_score)
+        feature_selector = RFECV(model, cv=5, scoring=prof_score)
     elif feature_select.startswith('SequentialFeatureSelector'):
         model = None
         if 'LogisticRegression' in feature_select:
             class_weight = st.selectbox("Select class weight for LogisticRegression", ['balanced', None])
             model = LogisticRegression(class_weight=class_weight)
+            
         scoring = prof_score
-        n_features_to_select = st.number_input("Enter the number of features to select for SequentialFeatureSelector", min_value=1, max_value=len(X_train.columns), value=5)
-        cv = st.number_input("Enter the number of folds for SequentialFeatureSelector", min_value=2, max_value=10, value=2)
-        feature_selector = SequentialFeatureSelector(model, scoring=scoring, n_features_to_select=n_features_to_select, cv=cv)
+        feature_selector = SequentialFeatureSelector(model, scoring=scoring, n_features_to_select= 2, cv= 5)
     else:
         st.error("Invalid feature selection method!")
         return None
@@ -256,10 +235,46 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
 
 if st.session_state['current_section'] == 'Overview':
     st.title("Overview")
-    st.header("Overview, Objectives, Process, and Results")
-    st.write("This tab will include an overview of our project proposal, the objectives of our project, the process we went through to build out this dashboard, and the results/takeaways")
+    
+    st.write("""When a loan is taken out the lender takes on a significant amount of risk– the risk the borrower will default on their loan. The bigger question our team is interested in addressing is how various attributes related to loans affect the likelihood of loan defaults. So overall, we want to learn how to predict loan defaults given specifications for many important variables. The goal of the project is to compare combinations of predictor variables and classification models to find the best ways of predicting which borrowers will default on their loans. 
+""")
+
+    st.header("Our Project:")
+    st.write("""In this project our team built a dashboard allowing the user to select which predictor variables they would like to use in their model and which type of model and features they would like to select and create. Essentially the user is able to build their own pipeline and compare its effectiveness against other models run on our dashboard.
+""")
+
+    st.header("Type of ML model:")
+    st.write("Classification model.")
+
+    st.header("Models:")
+    st.write("Logistic Regression, HistGradientBoostingRegressor, Lasso regression, Ridge regression, Linear SVC.
+")
+
+    st.header("Hypothesis:")
+    st.write("Our hypothesis is that interest rate has the most significant impact on loan defaults compared to other common leading indicators.
+")
+
+    st.header("Data:")
+    st.write("""We used the 2013 subsample csv provided in the machine learning folder. We have 134,804 observations of loan data with 33 data points. According to the loan status variable, of those observations, 113,780 loans are fully paid, while the remaining 21,024 are charged off (loan default).
+""")
+
+    st.header("Observation:")
+    st.write("An observation is the ID given that each value represents a unique person and their corresponding conditions.")
+
+    st.header("Sample Period:")
+    st.write("January 2013 – December 2013")
+
+    st.header("Predictor variables:")
+    st.write("Check the dictionary tab to view all the variable options for the model")
+
+    st.header("Process:")
+    st.write(""" After loading the csv file, we dropped the unnecessary columns, which were variables that wouldn't have made sense to include in any of the ML models. (See finaldataframe.ipynb in the source repository). We then split the data into training and testing data using an 80-20 split. Then we created a pipeline. In this pipeline we split the predictor variables into numerical and categorical values. We used One Hot Encoder to transform the categorical variables into numerical variables, so that it can be fed into the ML models. Then based on the method the user selects, we define the feature selection and feature creation transformers for each of the possible models. We also defined the hyperparameters we would like to maximize depending on the classification model. Based on user input, we created a function to construct a parameter grid, updated it with new hyperparameter ranges, and fit the grid to search our data. Finally, we plotted our results.""")
+
+    st.header("Results:")
+    st.write("""Since we are working with a classification model, we used a decision matrix as our primary way of visualizing and analyzing the results.""")
 
 ################################################### custom model builder ########################################################
+
 
 elif st.session_state['current_section'] == 'Custom Model Builder':
 
@@ -274,29 +289,10 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
         
     # Dropdown menu to choose the model
-    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'HistGradientBoostingRegressor', 'Lasso', 'Ridge', 'Linear SVC'])
-    st.write("Selected Model:", model_name)
+    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'HistGradientBoostingClassifier', 'Lasso', 'Ridge', 'Linear SVC', 'K-Nearest Neighbors', 'Decision Tree'])
 
-    # Select hyperparameter range for Lasso, Ridge, Linear SVC, Logistic Regression, and HistGradient models
-    param_range = None
-    if model_name in ['Lasso', 'Ridge']:
-        alpha_min = st.number_input("Enter the minimum alpha", min_value=0.0001, max_value=100.0, value=0.0001, step=0.0001)
-        alpha_max = st.number_input("Enter the maximum alpha", min_value=0.0001, max_value=100.0, value=100.0, step=0.0001)
-        alpha_points = st.number_input("Enter the number of alpha points", min_value=1, max_value=100, value=25)
-        param_range = (alpha_min, alpha_max, alpha_points)
-    elif model_name in ['Linear SVC', 'Logistic Regression']:
-        C_min = st.number_input("Enter the minimum value for C", min_value=0.0001, max_value=100.0, value=0.0001, step=0.0001)
-        C_max = st.number_input("Enter the maximum value for C", min_value=0.0001, max_value=100.0, value=100.0, step=0.0001)
-        param_range = [(C_min, C_max)]  # For Linear SVC and Logistic Regression, param_range is a list of tuples
-    elif model_name in ['HistGradientBoostingRegressor']:
-        learning_rate_min = st.number_input("Enter the minimum value for learning rate", min_value=0.01, max_value=1.0, value=0.1)
-        learning_rate_max = st.number_input("Enter the maximum value for learning rate", min_value=0.01, max_value=1.0, value=0.1)
-        param_range = (learning_rate_min, learning_rate_max)
-
-
-    
     # Dropdown menu to choose the feature selection method
-    feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA(5)', 'PCA(10)', 'PCA(15)',
+    feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA',
                                                                                  'SelectKBest(f_classif)',
                                                                                  'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))',
                                                                                  
@@ -311,12 +307,65 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         degree = st.number_input("Enter the degree for PolynomialFeatures", min_value=1, max_value=5, value=2)
     else:
         degree = None
+
+    hyperparameter_ranges = {}        
+
+    if model_name in ['Linear SVC', 'Logistic Regression']:
+        C_min = st.slider('C - Min Value', min_value=0.1, max_value=10.0, value=1.0)
+        C_max = st.slider('C - Max Value', min_value=0.1, max_value=10.0, value=5.0)
+        hyperparameter_ranges['C'] = np.linspace(C_min, C_max, num=10) 
+    elif model_name == 'HistGradientBoostingClassifier':
+        max_depth_min = st.slider('HistGradientBoostingClassifier - Min Max Depth', min_value=1, max_value=20, value=3)
+        max_depth_max = st.slider('HistGradientBoostingClassifier - Max Max Depth', min_value=1, max_value=20, value=12)
+        max_depth_step = st.slider('HistGradientBoostingClassifier - Step Size', min_value=1, max_value=10, value=1)
+        max_depth_values = list(range(max_depth_min, max_depth_max + 1, max_depth_step))
+        hyperparameter_ranges['max_depth'] = max_depth_values 
+    elif model_name in ['Lasso', 'Ridge']:
+        alpha_min = st.slider('Alpha - Min Value', min_value=0.1, max_value=10.0, value=1.0)
+        alpha_max = st.slider('Alpha - Max Value', min_value=0.1, max_value=10.0, value=5.0)
+        hyperparameter_ranges['alpha'] = np.linspace(alpha_min, alpha_max, num=10)
+    elif model_name == 'K-Nearest Neighbors':
+        n_neighbors_min = st.slider('Number of Neighbors - Min Value', min_value=1, max_value=20, value=3)
+        n_neighbors_max = st.slider('Number of Neighbors - Max Value', min_value=1, max_value=20, value=10)
+        hyperparameter_ranges['n_neighbors'] = list(range(n_neighbors_min, n_neighbors_max + 1))
+    elif model_name == 'Decision Tree':
+        min_split_min = st.slider('Min Samples Split - Min Value', min_value=2, max_value=50, value=2)
+        min_split_max = st.slider('Min Samples Split - Max Value', min_value=2, max_value=50, value=10)
+        hyperparameter_ranges['min_samples_split'] = list(range(min_split_min, min_split_max + 1))
+        
+    if feature_select_method in ['SelectKBest(f_classif)']:
+        selectkbest_k_min = st.slider('SelectKBest - Min K', min_value=1, max_value=50, value=5)
+        selectkbest_k_max = st.slider('SelectKBest - Max K', min_value=1, max_value=50, value=25)
+        selectkbest_k_step = st.slider('SelectKBest - Step Size', min_value=1, max_value=10, value=5)
+        hyperparameter_ranges['k'] = np.arange(selectkbest_k_min, selectkbest_k_max + 1, selectkbest_k_step)    
+    elif feature_select_method in ['PCA']:
+        n_components_min = st.slider('PCA - Min Number of Components', min_value=1, max_value=100, value=5)
+        n_components_max = st.slider('PCA - Max Number of Components', min_value=1, max_value=100, value=25)
+        hyperparameter_ranges['n_components'] = np.arange(n_components_min, n_components_max + 1) 
+    elif feature_select_method in ['SelectFromModel(LassoCV())']:
+        lasso_alpha_min = st.slider('Lasso Alpha - Min Value', min_value=0.1, max_value=10.0, value=1.0)
+        lasso_alpha_max = st.slider('Lasso Alpha - Max Value', min_value=0.1, max_value=10.0, value=5.0)
+        hyperparameter_ranges['lasso_alpha'] = np.linspace(lasso_alpha_min, lasso_alpha_max, num=10)
+    # elif feature_select_method == 'SelectFromModel(LinearSVC(penalty="l1", dual=False))':    
+    elif feature_select_method in ['SequentialFeatureSelector(LogisticRegression, scoring=prof_score)']:
+        n_features_min = st.slider('Minimum Number of Features for SequentialFeatureSelector', min_value=1, max_value=50, value=5)
+        n_features_max = st.slider('Maximum Number of Features for SequentialFeatureSelector', min_value=1, max_value=50, value=25)
+        hyperparameter_ranges['n_features_to_select'] = np.arange(n_features_min, n_features_max + 1)    
+    elif feature_select_method in ['RFECV(LogisticRegression, scoring=prof_score)']:
+        step_min = st.slider('RFECV Step - Min Value', min_value=1, max_value=10, value=1)
+        step_max = st.slider('RFECV Step - Max Value', min_value=1, max_value=10, value=5)
+        hyperparameter_ranges['step'] = np.arange(step_min, step_max + 1)
+    else:
+        hyperparameter_ranges = None
     
     # Create the pipeline based on the selected model and features
-    pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree, param_range)
+    pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
     
     # Dropdown menu to choose the cross-validation strategy
-    cv = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+    num_folds = st.number_input("Enter the number of folds for cross-validation", min_value=2, max_value=10, value=5)
+
+    # Define your cross-validation strategy based on the user input
+    cv = KFold(n_splits=num_folds, shuffle=True, random_state=42)
     
     # end: user choices
     ##################################################
@@ -325,13 +374,80 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     
     pipe
 
-    # Fit the pipeline with the training data
-    pipe.fit(X_train, y_train)
-    
-    # Get predictions
-    y_pred_train = pipe.predict(X_train)
+    param_grid = {}
 
-    if model_name in ["Logistic Regression", "Linear SVC"]:
+        # Function to construct parameter grid based on user input
+    def construct_param_grid(feature_selection_method, model, hyperparameter_ranges):
+        
+        if feature_selection_method == 'SelectKBest(f_classif)':
+            param_grid['feature_select__k'] = hyperparameter_ranges['k']
+        elif feature_selection_method == 'PCA':
+            param_grid['feature_select__n_components'] = hyperparameter_ranges['n_components']
+        elif feature_selection_method == 'SelectFromModel(LassoCV())':
+            param_grid['feature_select__estimator__alpha'] = hyperparameter_ranges['lasso_alpha']
+        elif feature_selection_method == 'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)':
+            param_grid['feature_select__n_features_to_select'] = hyperparameter_ranges['n_features_to_select']
+        elif feature_selection_method == 'RFECV(LogisticRegression, scoring=prof_score)':
+            param_grid['feature_select__step'] = hyperparameter_ranges['step']
+        
+        if model in ['Logistic Regression', 'Linear SVC']:
+            param_grid['clf__C'] = hyperparameter_ranges['C']
+        elif model in ['HistGradientBoostingClassifier']:
+            param_grid['clf__max_depth'] = hyperparameter_ranges['max_depth']
+        elif model in ['Lasso', 'Ridge']:
+            param_grid['clf__alpha'] = hyperparameter_ranges['alpha']
+        elif model == 'K-Nearest Neighbors':
+            param_grid['clf__n_neighbors'] = hyperparameter_ranges['n_neighbors']
+        elif model == 'Decision Tree':
+            param_grid['clf__min_samples_split'] = hyperparameter_ranges['min_samples_split']
+        
+        return param_grid
+    
+    
+    # Update parameter grid with new hyperparameter ranges
+    param_grid = construct_param_grid(feature_select_method, model_name, hyperparameter_ranges)
+
+    st.write(param_grid)
+    
+    grid_search = GridSearchCV(estimator = pipe, 
+                           param_grid = param_grid,
+                           cv = cv,
+                           scoring= prof_score, 
+                           error_score="raise",
+                           )
+
+    # Fit the grid search to your data
+    try:
+        results = grid_search.fit(X_train, y_train)
+    except Exception as e:
+        # Report the resulting error traceback
+        st.write("An error occurred during grid search fitting:")
+        st.write(e)
+        
+    output_df = pd.DataFrame(results.cv_results_).set_index('params').fillna('')
+    st.write(output_df)
+
+    # Create a new figure and axis object using Matplotlib's object-oriented interface
+    fig, ax = plt.subplots()
+    
+    # Plot the scatter plot
+    scatter = ax.scatter(output_df['std_test_score'], output_df['mean_test_score'], color='blue')
+    ax.scatter(output_df['std_test_score'][0], output_df['mean_test_score'][0], color='red')
+    
+    # Set the plot title and labels
+    ax.set_title("Mean vs STD of CV Test Scores")
+    ax.set_ylabel("Mean Test Score")
+    ax.set_xlabel("STD Test Score")
+    
+    # Show the plot
+    st.pyplot(fig)
+
+
+    # Get the best estimator and predictions
+    best_estimator = results.best_estimator_
+    y_pred_train = results.predict(X_train)
+
+    if model_name in ["Logistic Regression", "Linear SVC", "HistGradientBoostingClassifier", "K-Nearest Neighbors", "Decision Tree"]:
         # Calculate classification report
         report = classification_report(y_train, y_pred_train, output_dict=True)
         
@@ -398,16 +514,15 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     
         plot_residuals(y_train, y_pred_train)
 
+    # Assuming y_true and y_pred are your true and predicted labels
+    precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
     
-    # Perform cross-validation with custom scoring and additional metrics
-    scoring = {'score': prof_score}
-    cv_results = cross_validate(pipe, loans, y, cv=cv, scoring=scoring, return_train_score=True)
+    # Create a PrecisionRecallDisplay object
+    pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
     
-    st.write("Mean Test Score:", cv_results['test_score'].mean())
-    st.write("Standard Deviation Test Score:", cv_results['test_score'].std())
-    st.write("Standard Deviation Fit Time:", cv_results['fit_time'].std())
-    st.write("Mean Score Time:", cv_results['score_time'].mean())
-     # why isn't thisprinting in streamlit
+    # Display the Precision-Recall curve
+    st.pyplot(pr_display.plot())
+
 
 ################################################### Leaderboard ########################################################
 

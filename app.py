@@ -235,8 +235,43 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
 
 if st.session_state['current_section'] == 'Overview':
     st.title("Overview")
-    st.header("Overview, Objectives, Process, and Results")
-    st.write("This tab will include an overview of our project proposal, the objectives of our project, the process we went through to build out this dashboard, and the results/takeaways")
+    
+    st.write("""When a loan is taken out the lender takes on a significant amount of risk– the risk the borrower will default on their loan. The bigger question our team is interested in addressing is how various attributes related to loans affect the likelihood of loan defaults. So overall, we want to learn how to predict loan defaults given specifications for many important variables. The goal of the project is to compare combinations of predictor variables and classification models to find the best ways of predicting which borrowers will default on their loans. 
+""")
+
+    st.header("Our Project:")
+    st.write("""In this project our team built a dashboard allowing the user to select which predictor variables they would like to use in their model and which type of model and features they would like to select and create. Essentially the user is able to build their own pipeline and compare its effectiveness against other models run on our dashboard.
+""")
+
+    st.header("Type of ML model:")
+    st.write("Classification model.")
+
+    st.header("Models:")
+    st.write("Logistic Regression, HistGradientBoostingRegressor, Lasso regression, Ridge regression, Linear SVC.
+")
+
+    st.header("Hypothesis:")
+    st.write("Our hypothesis is that interest rate has the most significant impact on loan defaults compared to other common leading indicators.
+")
+
+    st.header("Data:")
+    st.write("""We used the 2013 subsample csv provided in the machine learning folder. We have 134,804 observations of loan data with 33 data points. According to the loan status variable, of those observations, 113,780 loans are fully paid, while the remaining 21,024 are charged off (loan default).
+""")
+
+    st.header("Observation:")
+    st.write("An observation is the ID given that each value represents a unique person and their corresponding conditions.")
+
+    st.header("Sample Period:")
+    st.write("January 2013 – December 2013")
+
+    st.header("Predictor variables:")
+    st.write("Check the dictionary tab to view all the variable options for the model")
+
+    st.header("Process:")
+    st.write(""" After loading the csv file, we dropped the unnecessary columns, which were variables that wouldn't have made sense to include in any of the ML models. (See finaldataframe.ipynb in the source repository). We then split the data into training and testing data using an 80-20 split. Then we created a pipeline. In this pipeline we split the predictor variables into numerical and categorical values. We used One Hot Encoder to transform the categorical variables into numerical variables, so that it can be fed into the ML models. Then based on the method the user selects, we define the feature selection and feature creation transformers for each of the possible models. We also defined the hyperparameters we would like to maximize depending on the classification model. Based on user input, we created a function to construct a parameter grid, updated it with new hyperparameter ranges, and fit the grid to search our data. Finally, we plotted our results.""")
+
+    st.header("Results:")
+    st.write("""Since we are working with a classification model, we used a decision matrix as our primary way of visualizing and analyzing the results.""")
 
 ################################################### custom model builder ########################################################
 
