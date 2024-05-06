@@ -89,8 +89,8 @@ with st.sidebar:
         menu_options = {
             "Overview, Objectives, Process, and Results": "Overview",
             "Custom Machine Learning Model Builder": "Custom Model Builder",
-            "Leaderboard": "Leaderboard",
-            "Dictionary": "Dictionary"
+            "Leaderboard of Previous Custom Models": "Leaderboard",
+            "Dictionary For Variables Used": "Dictionary"
         }
 
         # Use buttons with space padding for alignment
@@ -244,28 +244,28 @@ if st.session_state['current_section'] == 'Overview':
     st.subheader("Type of ML model:")
     st.write("Classification model.")
 
-    st.header("Models:")
+    st.subheader("Models:")
     st.write("Logistic Regression, HistGradientBoostingRegressor, Lasso regression, Ridge regression, Linear SVC.")
 
-    st.header("Hypothesis:")
+    st.subheader("Hypothesis:")
     st.write("Our hypothesis is that interest rate has the most significant impact on loan defaults compared to other common leading indicators.")
 
-    st.header("Data:")
+    st.subheader("Data:")
     st.write("""We used the 2013 subsample csv provided in the machine learning folder. We have 134,804 observations of loan data with 33 data points. According to the loan status variable, of those observations, 113,780 loans are fully paid, while the remaining 21,024 are charged off (loan default).""")
 
-    st.header("Observation:")
+    st.subheader("Observation:")
     st.write("An observation is the ID given that each value represents a unique person and their corresponding conditions.")
 
-    st.header("Sample Period:")
+    st.subheader("Sample Period:")
     st.write("January 2013 – December 2013")
 
-    st.header("Predictor variables:")
+    st.subheader("Predictor variables:")
     st.write("Check the dictionary tab to view all the variable options for the model")
 
-    st.header("Process:")
+    st.subheader("Process:")
     st.write(""" After loading the csv file, we dropped the unnecessary columns, which were variables that wouldn't have made sense to include in any of the ML models. (See finaldataframe.ipynb in the source repository). We then split the data into training and testing data using an 80-20 split. Then we created a pipeline. In this pipeline we split the predictor variables into numerical and categorical values. We used One Hot Encoder to transform the categorical variables into numerical variables, so that it can be fed into the ML models. Then based on the method the user selects, we define the feature selection and feature creation transformers for each of the possible models. We also defined the hyperparameters we would like to maximize depending on the classification model. Based on user input, we created a function to construct a parameter grid, updated it with new hyperparameter ranges, and fit the grid to search our data. Finally, we plotted our results.""")
 
-    st.header("Results:")
+    st.subheader("Results:")
     st.write("""Since we are working with a classification model, we used a decision matrix as our primary way of visualizing and analyzing the results.""")
 
 ################################################### custom model builder ########################################################
