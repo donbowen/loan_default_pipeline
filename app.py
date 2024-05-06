@@ -533,17 +533,28 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     
         plot_residuals(y_train, y_pred_train)
 
-    # Assuming y_true and y_pred are your true and predicted labels
-    precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
+    # Assuming y_true_train and y_pred_train are your true and predicted labels for the training set
+    precision, recall, _ = precision_recall_curve(y_true_train, y_pred_train)
     
     # Create a PrecisionRecallDisplay object
     pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
     
-    # Display the Precision-Recall curve
+    # Create a new figure and axis object using Matplotlib's object-oriented interface
     fig, ax = plt.subplots()
+    
+    # Plot the Precision-Recall curve on the specified axis
     pr_display.plot(ax=ax)
-    plt.savefig('precision_recall_curve.png')  # Save the figure
-    plt.show()
+    
+    # Set labels and title
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Precision')
+    ax.set_title('Precision-Recall Curve')
+    
+    # Save the figure to a file
+    plt.savefig('precision_recall_curve.png')
+    
+    # Display the plot in Streamlit
+    st.image('precision_recall_curve.png')
 
 
 ################################################### Leaderboard ########################################################
