@@ -534,7 +534,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         plot_residuals(y_train, y_pred_train)
 
     # Assuming y_true_train and y_pred_train are your true and predicted labels for the training set
-    precision, recall, _ = precision_recall_curve(y_true_train, y_pred_train)
+    precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
     
     # Create a PrecisionRecallDisplay object
     pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
