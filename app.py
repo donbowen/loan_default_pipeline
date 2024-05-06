@@ -540,7 +540,10 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
     
     # Display the Precision-Recall curve
-    st.pyplot(pr_display.plot())
+    fig, ax = plt.subplots()
+    pr_display.plot(ax=ax)
+    plt.savefig('precision_recall_curve.png')  # Save the figure
+    plt.show()
 
 
 ################################################### Leaderboard ########################################################
