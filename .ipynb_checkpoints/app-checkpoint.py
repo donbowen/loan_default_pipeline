@@ -236,27 +236,22 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
 if st.session_state['current_section'] == 'Overview':
     st.title("Overview")
     
-    st.write("""When a loan is taken out the lender takes on a significant amount of risk– the risk the borrower will default on their loan. The bigger question our team is interested in addressing is how various attributes related to loans affect the likelihood of loan defaults. So overall, we want to learn how to predict loan defaults given specifications for many important variables. The goal of the project is to compare combinations of predictor variables and classification models to find the best ways of predicting which borrowers will default on their loans. 
-""")
+    st.write("""When a loan is taken out the lender takes on a significant amount of risk– the risk the borrower will default on their loan. The bigger question our team is interested in addressing is how various attributes related to loans affect the likelihood of loan defaults. So overall, we want to learn how to predict loan defaults given specifications for many important variables. The goal of the project is to compare combinations of predictor variables and classification models to find the best ways of predicting which borrowers will default on their loans.""")
 
     st.header("Our Project:")
-    st.write("""In this project our team built a dashboard allowing the user to select which predictor variables they would like to use in their model and which type of model and features they would like to select and create. Essentially the user is able to build their own pipeline and compare its effectiveness against other models run on our dashboard.
-""")
+    st.write("""In this project our team built a dashboard allowing the user to select which predictor variables they would like to use in their model and which type of model and features they would like to select and create. Essentially the user is able to build their own pipeline and compare its effectiveness against other models run on our dashboard.""")
 
     st.header("Type of ML model:")
     st.write("Classification model.")
 
     st.header("Models:")
-    st.write("Logistic Regression, HistGradientBoostingRegressor, Lasso regression, Ridge regression, Linear SVC.
-")
+    st.write("Logistic Regression, HistGradientBoostingRegressor, Lasso regression, Ridge regression, Linear SVC.")
 
     st.header("Hypothesis:")
-    st.write("Our hypothesis is that interest rate has the most significant impact on loan defaults compared to other common leading indicators.
-")
+    st.write("Our hypothesis is that interest rate has the most significant impact on loan defaults compared to other common leading indicators.")
 
     st.header("Data:")
-    st.write("""We used the 2013 subsample csv provided in the machine learning folder. We have 134,804 observations of loan data with 33 data points. According to the loan status variable, of those observations, 113,780 loans are fully paid, while the remaining 21,024 are charged off (loan default).
-""")
+    st.write("""We used the 2013 subsample csv provided in the machine learning folder. We have 134,804 observations of loan data with 33 data points. According to the loan status variable, of those observations, 113,780 loans are fully paid, while the remaining 21,024 are charged off (loan default).""")
 
     st.header("Observation:")
     st.write("An observation is the ID given that each value represents a unique person and their corresponding conditions.")
