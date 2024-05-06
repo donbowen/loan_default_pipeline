@@ -152,12 +152,6 @@ cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_tr
 def create_pipeline(model_name, feature_select, feature_create, num_pipe_features, cat_pipe_features, degree = None):
     if model_name == 'Logistic Regression':
         clf = LogisticRegression(class_weight='balanced', penalty='l2')
-    elif model_name == 'HistGradientBoostingClassifier':
-        clf = HistGradientBoostingClassifier(class_weight = 'balanced')
-    elif model_name == 'Lasso':
-        clf = Lasso()
-    elif model_name == 'Ridge':
-        clf = Ridge()
     elif model_name == 'Linear SVC':
         clf = LinearSVC(class_weight='balanced', penalty='l2')
     elif model_name == 'K-Nearest Neighbors':
@@ -308,7 +302,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
         
     # Dropdown menu to choose the model
-    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'HistGradientBoostingClassifier', 'Lasso', 'Ridge', 'Linear SVC', 'K-Nearest Neighbors', 'Decision Tree'])
+    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Linear SVC', 'K-Nearest Neighbors', 'Decision Tree'])
 
     # Dropdown menu to choose the feature selection method
     feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA',
@@ -333,16 +327,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         C_min = st.slider('C - Min Value', min_value=0.1, max_value=10.0, value=1.0)
         C_max = st.slider('C - Max Value', min_value=0.1, max_value=10.0, value=5.0)
         hyperparameter_ranges['C'] = np.linspace(C_min, C_max, num=10) 
-    elif model_name == 'HistGradientBoostingClassifier':
-        max_depth_min = st.slider('HistGradientBoostingClassifier - Min Max Depth', min_value=1, max_value=20, value=3)
-        max_depth_max = st.slider('HistGradientBoostingClassifier - Max Max Depth', min_value=1, max_value=20, value=12)
-        max_depth_step = st.slider('HistGradientBoostingClassifier - Step Size', min_value=1, max_value=10, value=1)
-        max_depth_values = list(range(max_depth_min, max_depth_max + 1, max_depth_step))
-        hyperparameter_ranges['max_depth'] = max_depth_values 
-    elif model_name in ['Lasso', 'Ridge']:
-        alpha_min = st.slider('Alpha - Min Value', min_value=0.1, max_value=10.0, value=1.0)
-        alpha_max = st.slider('Alpha - Max Value', min_value=0.1, max_value=10.0, value=5.0)
-        hyperparameter_ranges['alpha'] = np.linspace(alpha_min, alpha_max, num=10)
     elif model_name == 'K-Nearest Neighbors':
         n_neighbors_min = st.slider('Number of Neighbors - Min Value', min_value=1, max_value=20, value=3)
         n_neighbors_max = st.slider('Number of Neighbors - Max Value', min_value=1, max_value=20, value=10)
@@ -387,8 +371,9 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     cv = KFold(n_splits=num_folds, shuffle=True, random_state=42)
     
     # end: user choices
-    ##################################################################################################################################
-    # start: outputs
+    ##################################################
+    
+    # User choice outputs
     
     pipe
 
@@ -410,10 +395,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         
         if model in ['Logistic Regression', 'Linear SVC']:
             param_grid['clf__C'] = hyperparameter_ranges['C']
-        elif model in ['HistGradientBoostingClassifier']:
-            param_grid['clf__max_depth'] = hyperparameter_ranges['max_depth']
-        elif model in ['Lasso', 'Ridge']:
-            param_grid['clf__alpha'] = hyperparameter_ranges['alpha']
         elif model == 'K-Nearest Neighbors':
             param_grid['clf__n_neighbors'] = hyperparameter_ranges['n_neighbors']
         elif model == 'Decision Tree':
@@ -441,8 +422,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         # Report the resulting error traceback
         st.write("An error occurred during grid search fitting:")
         st.write(e)
-
-    
         
     output_df = pd.DataFrame(results.cv_results_).set_index('params').fillna('')
     st.write(output_df)
@@ -467,7 +446,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     best_estimator = results.best_estimator_
     y_pred_train = results.predict(X_train)
 
-    if model_name in ["Logistic Regression", "Linear SVC", "HistGradientBoostingClassifier", "K-Nearest Neighbors", "Decision Tree"]:
+    if model_name in ["Logistic Regression", "Linear SVC", "K-Nearest Neighbors", "Decision Tree"]:
         # Calculate classification report
         report = classification_report(y_train, y_pred_train, output_dict=True)
         
@@ -475,19 +454,41 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         classification_report_str = """
         Classification Report (Train Data):
         
-        |          | Precision | Recall | F1-Score | Support |
-        |----------|-----------|--------|----------|---------|
-        |   False  |   {:.2f}  | {:.2f} | {:.2f}   |  {:<6}  |
-        |   True   |   {:.2f}  | {:.2f} | {:.2f}   |  {:<6}  |
-        |----------|-----------|--------|----------|---------|
-        | Accuracy |           |        |  {:.2f}  |         |
-        
+        |        | Precision | Recall | F1-Score | Support |
+        |--------|-----------|--------|----------|---------|
+        | False  |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+        | True   |   {:.2f}   |  {:.2f} |   {:.2f}   |   {:<6}  |
+        |--------|-----------|--------|----------|---------|
+        | Accuracy |          |        |   {:.2f}  |         |
         """.format(report["False"]["precision"], report["False"]["recall"], report["False"]["f1-score"], report["False"]["support"],
                    report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
                    report["accuracy"])
         
         # Display classification report
         st.markdown(classification_report_str)
+
+        # Assuming y_true_train and y_pred_train are your true and predicted labels for the training set
+        precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
+        
+        # Create a PrecisionRecallDisplay object
+        pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
+        
+        # Create a new figure and axis object using Matplotlib's object-oriented interface
+        fig, ax = plt.subplots()
+        
+        # Plot the Precision-Recall curve on the specified axis
+        pr_display.plot(ax=ax)
+        
+        # Set labels and title
+        ax.set_xlabel('Recall')
+        ax.set_ylabel('Precision')
+        ax.set_title('Precision-Recall Curve')
+        
+        # Save the figure to a file
+        plt.savefig('precision_recall_curve.png')
+        
+        # Display the plot in Streamlit
+        st.image('precision_recall_curve.png')
         
         # Calculate confusion matrix
         cm = confusion_matrix(y_train, y_pred_train)
@@ -496,67 +497,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         st.write("Confusion Matrix (Train Data):")
         confusion_matrix_chart = ConfusionMatrixDisplay(cm).plot()
         st.pyplot(confusion_matrix_chart.figure_)
-    else:
-        # Calculate metrics for Regression model
-        mse_train = mean_squared_error(y_train, y_pred_train)
-        rmse_train = np.sqrt(mse_train)
-        r2_train = r2_score(y_train, y_pred_train)
-    
-        # Create a formatted regression report string
-        regression_report_str = """
-        Regression Report (Train Data):
-    
-        Mean Squared Error: {:.2f}
-        Root Mean Squared Error: {:.2f}
-        R-squared: {:.2f}
-        """.format(mse_train, rmse_train, r2_train)
-    
-        # Display regression report
-        st.markdown(regression_report_str)
-        
-        def plot_residuals(y_true, y_pred):
-            # Calculate residuals
-            residuals = y_true - y_pred
-            
-            # Create residual plot
-            plt.figure(figsize=(8, 6))
-            sns.residplot(y_pred, residuals, lowess=True, line_kws={'color': 'red', 'lw': 1})
-            
-            # Set plot labels and title
-            plt.title('Residual Plot')
-            plt.xlabel('Predicted Values')
-            plt.ylabel('Residuals')
-            plt.grid(True)
-            
-            # Show plot
-            st.pyplot()
-
-        #Display residual plot
-    
-        plot_residuals(y_train, y_pred_train)
-
-    # Assuming y_true_train and y_pred_train are your true and predicted labels for the training set
-    precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
-    
-    # Create a PrecisionRecallDisplay object
-    pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
-    
-    # Create a new figure and axis object using Matplotlib's object-oriented interface
-    fig, ax = plt.subplots()
-    
-    # Plot the Precision-Recall curve on the specified axis
-    pr_display.plot(ax=ax)
-    
-    # Set labels and title
-    ax.set_xlabel('Recall')
-    ax.set_ylabel('Precision')
-    ax.set_title('Precision-Recall Curve')
-    
-    # Save the figure to a file
-    plt.savefig('precision_recall_curve.png')
-    
-    # Display the plot in Streamlit
-    st.image('precision_recall_curve.png')
 
 
 ################################################### Leaderboard ########################################################
