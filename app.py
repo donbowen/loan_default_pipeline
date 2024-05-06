@@ -241,12 +241,15 @@ if st.session_state['current_section'] == 'Overview':
 
     st.subheader("Our Project:")
     st.write("""In this project our team built a dashboard allowing the user to select which predictor variables they would like to use in their model and which type of model and features they would like to select and create. Essentially the user is able to build their own pipeline and compare its effectiveness against other models run on our dashboard.""")
+    st.write("\n" * 5)
 
     st.subheader("Type of ML model:")
     st.write("Classification model.")
+    st.write("\n" * 5)
 
     st.subheader("Models:")
     st.write("Logistic Regression, HistGradientBoostingRegressor, Lasso regression, Ridge regression, Linear SVC.")
+    st.write("\n" * 5)
 
     st.subheader("Hypothesis:")
     st.write("Our hypothesis is that interest rate has the most significant impact on loan defaults compared to other common leading indicators.")
