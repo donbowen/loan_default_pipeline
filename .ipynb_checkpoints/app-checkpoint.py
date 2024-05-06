@@ -62,7 +62,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 
 
-################################ formatting (not totally sure what all of this does) #############################
+################################ formatting #############################
 
 set_config(display="diagram")  # display='text' is the default
 
@@ -298,7 +298,7 @@ if st.session_state['current_section'] == 'Overview':
 elif st.session_state['current_section'] == 'Custom Model Builder':
 
     # begin : user choices
-    st.title("Build Your Own Custom Model")
+    st.markdown("<h1 style='text-align: center;'>Build Your Own Custom Model</h1>", unsafe_allow_html=True)
     # num_pipe_features =  .... st.menu(list of choices or something);
     
     # Checkbox to select numerical features
@@ -549,7 +549,7 @@ elif st.session_state['current_section'] == 'Leaderboard':
     st.title("Leaderboard")
     st.header("Hopefully this isn't too hard because it will probably be the last thing we do")
 
-################################################### custom model builder ########################################################
+################################################### Dictionary ########################################################
 
 elif st.session_state['current_section'] == 'Dictionary':
     st.markdown("<h1 style='text-align: center;'>Dictionary</h1>", unsafe_allow_html=True)
