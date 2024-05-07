@@ -23,7 +23,7 @@
 ### Sources Used
 - https://ledatascifi.github.io/ledatascifi-2024/content/about/schedule.html
 - Geeks for Geeks (multiple tabs)
-- https://scikit-learn.org/ (also multiple tabs and mostly for documentatino)
+- https://scikit-learn.org/ (also multiple tabs and mostly for documentation)
 - Chat GPT
 
  ### Dictionary for Variables Used
