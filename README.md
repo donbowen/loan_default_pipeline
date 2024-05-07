@@ -1,6 +1,6 @@
 # Final Project: Credit Default Machine Learning Model
 ## Assignment 9
-**Link to Website:** https://phfxeoenukjbktk4bibykr.streamlit.app/
+**Link to Website:** https://loandefaultcustommodel.streamlit.app/
 <br>
 
 
