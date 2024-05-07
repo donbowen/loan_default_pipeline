@@ -21,7 +21,7 @@
  - Shows a ranking of different custom models that were ran and how "good" they were
 
  ### Dictionary for Variables Used
- - Defines variables the model uses, the types of machine learning models a user can run, and the features for feature select and feature create
+ - Defines variables the model uses, the types of machine learning models a user can run, and the features for feature select and feature create.
  The purpose for this tab is so that any user can run a model regardless of their machine learning knowledge
 
 
