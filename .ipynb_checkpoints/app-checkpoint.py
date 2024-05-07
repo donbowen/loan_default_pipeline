@@ -570,9 +570,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
             st.session_state['leaderboard'] = pd.DataFrame(columns=list(new_entry.keys()))
     
         st.session_state['leaderboard'] = pd.concat([st.session_state['leaderboard'], new_entry], ignore_index=True)
-        st.session_state['leaderboard'] = st.session_state['leaderboard'].sort_values(by='F1-score', ascending=False)
-        print("Saving data to CSV", st.session_state['leaderboard'])
-        st.session_state['leaderboard'].to_csv('leaderboard.csv', index_label='Rank')
+        st.session_state['leaderboard'].to_csv('leaderboard.csv', index=False)
         st.success('Model results saved to leaderboard.')
         
     if st.button('Done'):
@@ -586,10 +584,9 @@ elif st.session_state['current_section'] == 'Leaderboard':
     st.header("Compare your model to previous ones ranked by their performance")
     
     if 'leaderboard' in st.session_state and not st.session_state.leaderboard.empty:
-        sorted_leaderboard = st.session_state['leaderboard'].sort_values(by='F1-score', ascending=False)
-        sorted_leaderboard.index += 1  # Optional: Start index at 1 instead of 0
-        st.session_state['leaderboard'] = sorted_leaderboard
-        st.dataframe(st.session_state['leaderboard'])
+        sorted_leaderboard = st.session_state['leaderboard'].sort_values(by='F1-score', ascending=False).reset_index(drop=True)
+        sorted_leaderboard.index = np.arange(1, len(sorted_leaderboard) + 1)
+        st.dataframe(sorted_leaderboard)
     else:
         st.write("No leaderboard data available.")
     

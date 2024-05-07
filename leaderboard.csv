@@ -1,5 +1,0 @@
-User Name,Model Name,Numerical Features,Categorical Features,Feature Selection Method,Feature Creation Method,F1-score
-Mason Schick,Logistic Regression,dti,"grade, addr_state",SelectKBest(f_classif),passthrough,0.33631380799468497
-Mason Schick,Logistic Regression,annual_inc,addr_state,SelectKBest(f_classif),passthrough,0.27825507996056387
-Mason Schick,Logistic Regression,annual_inc,addr_state,SelectKBest(f_classif),passthrough,0.27825507996056387
-Mason Schick,Logistic Regression,annual_inc,addr_state,SelectKBest(f_classif),passthrough,0.27825507996056387
