@@ -54,8 +54,6 @@ import streamlit as st
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
 import seaborn as sns
-from sklearn.experimental import enable_hist_gradient_boosting
-from scipy.sparse import csr_matrix #delete later, replace with effective spare to dense import fix
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 
@@ -353,9 +351,9 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         n_components_max = st.slider('PCA - Max Number of Components', min_value=1, max_value=100, value=25)
         hyperparameter_ranges['n_components'] = np.arange(n_components_min, n_components_max + 1) 
     elif feature_select_method in ['SelectFromModel(LinearSVC(penalty="l2", dual=False))']:
-        C_min = st.slider('LinearSVC - Min C', min_value=0.1, max_value=10.0, step=0.1, value=1.0)
-        C_max = st.slider('LinearSVC - Max C', min_value=0.1, max_value=10.0, step=0.1, value=1.0)
-        hyperparameter_ranges['C'] = np.arange(C_min, C_max + 0.1, 0.1)    
+        threshold_min = st.slider('LinearSVC - Min Threshold', min_value=0.0, max_value=1.0, step=0.01, value=0.5)
+        threshold_max = st.slider('LinearSVC - Max Threshold', min_value=0.0, max_value=1.0, step=0.01, value=0.5)
+        hyperparameter_ranges['threshold'] = np.arange(threshold_min, threshold_max + 0.01, 0.01)       
     elif feature_select_method in ['SequentialFeatureSelector(LogisticRegression, scoring=prof_score)']:
         n_features_min = st.slider('Minimum Number of Features for SequentialFeatureSelector', min_value=1, max_value=50, value=5)
         n_features_max = st.slider('Maximum Number of Features for SequentialFeatureSelector', min_value=1, max_value=50, value=25)
@@ -397,7 +395,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         elif feature_selection_method == 'RFECV(LogisticRegression, scoring=prof_score)':
             param_grid['feature_select__step'] = hyperparameter_ranges['step']
         elif feature_selection_method == 'SelectFromModel(LinearSVC(penalty="l2", dual=False))':
-            param_grid['feature_select__C'] = hyperparameter_ranges['C']
+            param_grid['feature_select__threshold'] = hyperparameter_ranges['threshold']
         
         if model in ['Logistic Regression', 'Linear SVC']:
             param_grid['clf__C'] = hyperparameter_ranges['C']
