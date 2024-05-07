@@ -262,7 +262,7 @@ if st.session_state['current_section'] == 'Overview':
     st.write("\n" * 5)
 
     st.subheader("Models:")
-    st.write("Logistic Regression, HistGradientBoostingRegressor, Lasso regression, Ridge regression, Linear SVC.")
+    st.write("Logistic Regression, Linear SVC, K-Nearest Neighbors, and Decision Tree")
     st.write("\n" * 5)
 
     st.subheader("Hypothesis:")
@@ -600,19 +600,19 @@ elif st.session_state['current_section'] == 'Dictionary':
         "annual_inc": "The self-reported annual income provided by the borrower during registration.",
         "dti": "A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.",
         "earliest_cr_line": "The month the borrower's earliest reported credit line was opened",
-        "emp_length": "Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (5962 or 4.4227% missing fields)",
+        "emp_length": "Employment length in years. Possible values are between 0 and 10 where 0 means less than one year and 10 means ten or more years. (WARNING: 5962 or 4.4227% of the fields are missing)",
         "fico_range_high": "The upper boundary range the borrower’s FICO at loan origination belongs to.",
         "fico_range_low": "The lower boundary range the borrower’s FICO at loan origination belongs to.",
         "installment": "The monthly payment owed by the borrower if the loan originates.",
         "int_rate": "Interest Rate on the loan.",
         "loan_amnt": "The listed amount of the loan applied for by the borrower. If at some point in time, the credit department reduces the loan amount, then it will be reflected in this value.",
-        "mort_acc": "Number of mortgage accounts. (values range from 0-20 and beyond but data gets weird; don’t fully understand what this means)",
-        "open_acc": "The number of open credit lines in the borrower's credit file. (values range 0-62; 54 unique values)",
-        "pub_rec": "Number of derogatory public records (14 values; values range 0-54; 118805 are 0; 14477 are 1)",
-        "pub_rec_bankruptcies": "Number of public record bankruptcies (9 values; values range 0-8; 120491 are 0; 14010 are 1)",
+        "mort_acc": "Number of mortgage accounts.",
+        "open_acc": "The number of open credit lines in the borrower's credit file.",
+        "pub_rec": "Number of derogatory public records",
+        "pub_rec_bankruptcies": "Number of public record bankruptcies",
         "revol_bal": "Total credit revolving balance",
-        "revol_util": "Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit. (1068 different values) (Warning: 78 missing values) (mean value: 58.58)",
-        "total_acc": "The total number of credit lines currently in the borrower's credit file (values range 2-105) (84 different values)",
+        "revol_util": "Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit. (WARNING: 78 fields with missing values)",
+        "total_acc": "The total number of credit lines currently in the borrower's credit file",
     }
     for term, definition in numerical.items():
         col1, col2 = st.columns([1, 8])  # Adjust the ratio if needed to accommodate your content
@@ -627,8 +627,8 @@ elif st.session_state['current_section'] == 'Dictionary':
         "grade": "LC assigned loan grade (7 values: A, B, C, D, E, F, G)",
         "home_ownership": "The home ownership status provided by the borrower during registration or obtained from the credit report. Values: RENT, OWN, MORTGAGE",
         "initial_list_status": "The initial listing status of the loan. Possible values are – W, F",
-        "issue_d": "The month which the loan was funded (all 12 months in data)",
-        "purpose": "A category provided by the borrower for the loan request (13 values: debt_consolidation, credit_card, home_improvement, other, major_purchase, small_business, car, medical, house, moving, wedding, vacation, renewable_energy) (all >500 except renewable energy (51))",
+        "issue_d": "The month which the loan was funded (values include all 12 months)",
+        "purpose": "A category provided by the borrower for the loan request (13 values: debt_consolidation, credit_card, home_improvement, other, major_purchase, small_business, car, medical, house, moving, wedding, vacation, renewable_energy)",
         "sub_grade": "LC assigned loan subgrade (35 values: A1, A2,...  …G3, G4, G5)",
         "term": "The number of payments on the loan. Values are in months and can be either 36 or 60. (36 months or 60 months)",
         "verification_status": "Indicates if income was verified by LC, not verified, or if the income source was verified (3 values: Verified, Not Verified, Source Verified)",
@@ -644,11 +644,10 @@ elif st.session_state['current_section'] == 'Dictionary':
 
     st.markdown("<h2 style='text-align: center;'>Model:</h2>", unsafe_allow_html=True)
     model = {
-        "Logistic Regression": "...",
-        "HistGradientBoostingRegressor": "...",
-        "Lasso": "...",
-        "Ridge": "...",
-        "Linear SVC": "...",
+        "Logistic Regression": "A supervised machine learning algorithm for a binary classification problem that produces a probability that an instance belongs to a given class.",
+        "Linear SVC": "A supervised machine learning algorithm that finds a hyperplane that maximally separates the different classes in the data.",
+        "K-Nearest Neighbors": "A non-parametric supervised machine learning algorithm that finds a certain number of nearest points based on a distance metric, such as a Euclidean distance.",
+        "Decision Tree": "A supervised machine learning algorithm that creates a flowchart-like tree structure where each internal node denotes a test on an attribute, each branch represents an outcome of the test, and each leaf node (terminal node) holds a class label. It is constructed by recursively splitting the training data into subsets based on the values of the attributes until a stopping criterion is me",
     }
     for term, definition in model.items():
         col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
@@ -659,12 +658,17 @@ elif st.session_state['current_section'] == 'Dictionary':
 
 
     st.markdown("<h2 style='text-align: center;'>Feature Selection:</h2>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>Feature selection is the process of choosing a subset of relevant features (variables, predictors) for use in model construction</h4>", unsafe_allow_html=True)
+
+    st.write("\n" * 5)
+    
     selection = {
-        "Logistic Regression": "...",
-        "HistGradientBoostingRegressor": "...",
-        "Lasso": "...",
-        "Ridge": "...",
-        "Linear SVC": "...",
+        "Passthrough": "Skips over the Feature Selection.",
+        "PCA": "PCA stands for  Principal Component Analysis. It is used for dimensionality reduction, and indirectly performs feature selection by identifying the most important features (components) that capture the maximum variance in the data.",
+        "SelectKBest(f_classif)": "A feature selection technique that selects the k best features based on a scoring function.",
+        "SelectFromModel(LinearSVC...)": "A feature selection method that selects features based on the importance given by an underlying model. The penalty specifies the use of L1 regularization, which encourages sparsity in the feature weights. By setting dual = False it utilizes the primal optimization problem, which is preferred when the number of samples is smaller than the number of features",
+        "RFECV(LogisticRegression, scoring=prof_score)": "The Recursive Feature Elimination with Cross-Validation method recursively removes the least important features and selects the optimal subset of features based on cross-validation performance. It evaluates the performance of the model with different subsets of features using cross-validation, selecting the subset that maximizes the specified scoring metric",
+        "SequentialFeatureSelector(...)": "Selects features by iteratively adding or removing them based on their individual contribution to the model's performance. In each iteration, it evaluates the performance of the model with different subsets of features using cross-validation, selecting the subset that maximizes or minimizes the specified scoring metric, depending on whether it's performing forward or backward selection.",
     }
     for term, definition in selection.items():
         col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
@@ -674,12 +678,12 @@ elif st.session_state['current_section'] == 'Dictionary':
             st.write(definition)
 
     st.markdown("<h2 style='text-align: center;'>Features Creation:</h2>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>Feature Creation is the process of transforming raw data into features that better represent the underlying problem to the predictive models, thus improving their performance</h4>", unsafe_allow_html=True)
     creation = {
-        "Logistic Regression": "...",
-        "HistGradientBoostingRegressor": "...",
-        "Lasso": "...",
-        "Ridge": "...",
-        "Linear SVC": "...",
+        "Passthrough": "Skips over the Feature Creation",
+        "PolynomialFeatures": "Transforms input features by generating polynomial combinations of them, up to a specified degree",
+        "MinMaxScaler": "It scales and transforms the features such that they are mapped to a specified range, typically between 0 and 1. This scaling is achieved by subtracting the minimum value of each feature and then dividing by the range (maximum value minus minimum value) of that feature.",
+        "MaxAbsScaler": "It scales and transforms the features such that the absolute values of each feature are mapped to the range [-1, 1]. It is a useful tool for ensuring that features are on a consistent scale, making it easier for machine learning models to learn from the data without being biased by the scale of the features. It's especially beneficial when dealing with sparse data or when you want to preserve the sign of the feature values.",
     }
     for term, definition in creation.items():
         col1, col2 = st.columns([1, 5])  # Adjust the ratio if needed to accommodate your content
