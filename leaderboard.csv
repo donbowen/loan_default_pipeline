@@ -1,2 +1,3 @@
 Model Name,Numerical Features,Categorical Features,Feature Selection Method,Feature Creation Method,Accuracy
 Logistic Regression,annual_inc,addr_state,SelectKBest(f_classif),passthrough,0.4773049711154178
+Logistic Regression,annual_inc,grade,SelectKBest(f_classif),PolynomialFeatures,0.5362146824550504

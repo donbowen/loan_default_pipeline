@@ -145,6 +145,16 @@ num_pipe_features = X_train.select_dtypes(include="float64").columns
 # List of all categorical variables
 cat_pipe_features = X_train.select_dtypes(include='object').columns  # all: X_train.select_dtypes(include='object').columns
 
+def load_leaderboard():
+    if os.path.exists('leaderboard.csv'):
+        return pd.read_csv('leaderboard.csv')
+    else:
+        return pd.DataFrame(columns=['Model Name', 'Numerical Features', 'Categorical Features', 'Feature Selection Method', 'Feature Creation Method', 'Accuracy'])
+
+# Load the leaderboard at the start of the app
+if 'leaderboard' not in st.session_state:
+    st.session_state['leaderboard'] = load_leaderboard()
+
 
 ################################################## custom model code #################################################
 
@@ -577,12 +587,12 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
 elif st.session_state['current_section'] == 'Leaderboard':
 
     st.title("Leaderboard")
-    st.header("Hopefully this isn't too hard because it will probably be the last thing we do")
     
-    if 'leaderboard' in st.session_state and not st.session_state['leaderboard'].empty:
-        st.dataframe(st.session_state['leaderboard'])
+    if 'leaderboard' in st.session_state and not st.session_state.leaderboard.empty:
+        st.dataframe(st.session_state.leaderboard)
     else:
         st.write("No leaderboard data available.")
+    
 ################################################### Dictionary ########################################################
 
 elif st.session_state['current_section'] == 'Dictionary':
