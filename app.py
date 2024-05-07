@@ -542,8 +542,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         st.pyplot(confusion_matrix_chart.figure_)
 
 
-
-
     
     # Function to save model results and selections
     def run_model():

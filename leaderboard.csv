@@ -1,4 +1,5 @@
 User Name,Model Name,Numerical Features,Categorical Features,Feature Selection Method,Feature Creation Method,F1-score
-Mason Schick,Logistic Regression,annual_inc,addr_state,SelectKBest(f_classif),passthrough,0.27825507996056387
+Mason Schick,Logistic Regression,annual_inc,addr_state,SelectKBest(f_classif),passthrough,0.2782550799605638
 Mason Schick,Logistic Regression,pub_rec,"purpose, home_ownership",SelectKBest(f_classif),PolynomialFeatures,0.2582743904258812
 Mason Schick,Logistic Regression,int_rate,sub_grade,SelectKBest(f_classif),passthrough,0.3408853778506484
+Alicia Zhang,Logistic Regression,annual_inc,grade,SelectKBest(f_classif),PolynomialFeatures,0.33464587878465385
