@@ -20,13 +20,14 @@
  ### Leaderboard of Previous Custom Models
  - Shows a ranking of different custom models that were ran and how "good" they were
 
+ ### Dictionary for Variables Used
+ - Defines variables the model uses, the types of machine learning models a user can run, and the features for feature select and feature create
+ The purpose for this tab is so that any user can run a model regardless of their machine learning knowledge
+
+
 ### Sources Used
 - https://ledatascifi.github.io/ledatascifi-2024/content/about/schedule.html
 - Geeks for Geeks (multiple tabs)
 - https://scikit-learn.org/ (also multiple tabs and mostly for documentation)
 - Chat GPT
-
- ### Dictionary for Variables Used
- - Defines variables the model uses, the types of machine learning models a user can run, and the features for feature select and feature create
- The purpose for this tab is so that any user can run a model regardless of their machine learning knowledge
 
