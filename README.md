@@ -12,7 +12,7 @@
 
 
 ### Overview Objective Process Results
- - This secion gives the overview of the project, the process the team took to build the model, and the result
+ - This section gives the overview of the project, the process the team took to build the model, and the result
 
  ### Custom Machine Learning Model Builder
  - Allows the user to build their own classification model to predict the risk of a credit default
