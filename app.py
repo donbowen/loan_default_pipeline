@@ -378,7 +378,8 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     ##################################################
     
     # User choice outputs
-    
+
+    # Output the pipe in streamlit!
     pipe
 
     param_grid = {}
@@ -428,7 +429,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         st.write(e)
         
     st.write("\n" * 5)
-    st.markdown("<h1 style='text-align: center;'>Ranking CV Test Scores by Mean and SD </h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>Ranking CV Test Scores by Mean and STD </h1>", unsafe_allow_html=True)
     output_df = pd.DataFrame(results.cv_results_).set_index('params').fillna('')
     st.write(output_df)
 
@@ -512,30 +513,24 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         st.markdown("<h1 style='text-align: center;'>Classification Report</h1>", unsafe_allow_html=True)
         st.markdown(classification_report_str, unsafe_allow_html=True)
 
-        # Assuming y_true_train and y_pred_train are your true and predicted labels for the training set
+        # Assuming y_train and y_pred_train are true and predicted labels for the training set
         precision, recall, _ = precision_recall_curve(y_train, y_pred_train)
         
-        # Create a PrecisionRecallDisplay object
-        pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
-        
-        # Create a new figure and axis object using Matplotlib's object-oriented interface
+        # Create a new figure
         fig, ax = plt.subplots()
         
-        # Plot the Precision-Recall curve on the specified axis
-        pr_display.plot(ax=ax)
+        # Plot the Precision-Recall curve
+        ax.plot(recall, precision)
         
         # Set labels and title
         ax.set_xlabel('Recall')
         ax.set_ylabel('Precision')
         ax.set_title('Precision-Recall Curve')
         
-        # Save the figure to a file
-        plt.savefig('precision_recall_curve.png')
-        
         # Display the plot in Streamlit
         st.write("\n" * 5)
         st.markdown("<h1 style='text-align: center;'>Precision Recall</h1>", unsafe_allow_html=True)
-        st.image('precision_recall_curve.png')
+        st.pyplot(fig)
         
         # Calculate confusion matrix
         cm = confusion_matrix(y_train, y_pred_train)
