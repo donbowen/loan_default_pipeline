@@ -149,12 +149,11 @@ def load_leaderboard():
     if os.path.exists('leaderboard.csv'):
         return pd.read_csv('leaderboard.csv')
     else:
-        return pd.DataFrame(columns=['Model Name', 'Numerical Features', 'Categorical Features', 'Feature Selection Method', 'Feature Creation Method', 'Accuracy'])
+        return pd.DataFrame(columns=['User Name', 'Model Name', 'Numerical Features', 'Categorical Features', 'Feature Selection Method', 'Feature Creation Method', 'F1-score'])
 
 # Load the leaderboard at the start of the app
 if 'leaderboard' not in st.session_state:
     st.session_state['leaderboard'] = load_leaderboard()
-
 
 ################################################## custom model code #################################################
 
@@ -190,10 +189,7 @@ def create_pipeline(model_name, feature_select, feature_create, num_pipe_feature
     elif feature_select.startswith('SelectKBest'):
         feature_selector = SelectKBest(score_func=f_classif)
     elif feature_select.startswith('SelectFromModel'):
-        if 'LassoCV' in feature_select:
-            model = LassoCV()
-            feature_selector = SelectFromModel(model)
-        elif 'LinearSVC' in feature_select:
+        if 'LinearSVC' in feature_select:
             class_weight = st.selectbox("Select class weight for LinearSVC", ['balanced', None])
             model = LinearSVC(penalty="l2", dual=False, class_weight=class_weight)
             feature_selector = SelectFromModel(model)
@@ -299,12 +295,15 @@ if st.session_state['current_section'] == 'Overview':
 ################################################### custom model builder ########################################################
 
 elif st.session_state['current_section'] == 'Custom Model Builder':
-
+    
     # begin : user choices
     st.markdown("<h1 style='text-align: center;'>Build Your Own Custom Model</h1>", unsafe_allow_html=True)
     # num_pipe_features =  .... st.menu(list of choices or something);
-    
+
+    user_name = st.text_input("Enter your name", key='user_name')
     # Checkbox to select numerical features
+
+    
     selected_num_features = st.multiselect("Select Numerical Features:", num_pipe_features, key='selected_num_features')
     
     # Checkbox to select categorical features
@@ -315,7 +314,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     model_name = st.selectbox("Choose Model:", model_options, key='selected_model')
 
     # Dropdown menu to choose the feature selection method
-    feature_select_options = ['passthrough', 'PCA', 'SelectKBest(f_classif)', 'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))', 'RFECV(LogisticRegression, scoring=prof_score)', 'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',]
+    feature_select_options = ['passthrough', 'PCA', 'SelectKBest(f_classif)', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))', 'RFECV(LogisticRegression, scoring=prof_score)', 'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',]
     feature_select_method = st.selectbox("Choose Feature Selection Method:", feature_select_options, key='selected_feature_selection')
     
     # Dropdown menu to choose the feature creation method
@@ -352,10 +351,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         n_components_min = st.slider('PCA - Min Number of Components', min_value=1, max_value=100, value=5)
         n_components_max = st.slider('PCA - Max Number of Components', min_value=1, max_value=100, value=25)
         hyperparameter_ranges['n_components'] = np.arange(n_components_min, n_components_max + 1) 
-    elif feature_select_method in ['SelectFromModel(LassoCV())']:
-        lasso_alpha_min = st.slider('Lasso Alpha - Min Value', min_value=0.1, max_value=10.0, value=1.0)
-        lasso_alpha_max = st.slider('Lasso Alpha - Max Value', min_value=0.1, max_value=10.0, value=5.0)
-        hyperparameter_ranges['lasso_alpha'] = np.linspace(lasso_alpha_min, lasso_alpha_max, num=10)
     # elif feature_select_method == 'SelectFromModel(LinearSVC(penalty="l1", dual=False))':    
     elif feature_select_method in ['SequentialFeatureSelector(LogisticRegression, scoring=prof_score)']:
         n_features_min = st.slider('Minimum Number of Features for SequentialFeatureSelector', min_value=1, max_value=50, value=5)
@@ -393,8 +388,6 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
             param_grid['feature_select__k'] = hyperparameter_ranges['k']
         elif feature_selection_method == 'PCA':
             param_grid['feature_select__n_components'] = hyperparameter_ranges['n_components']
-        elif feature_selection_method == 'SelectFromModel(LassoCV())':
-            param_grid['feature_select__estimator__alpha'] = hyperparameter_ranges['lasso_alpha']
         elif feature_selection_method == 'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)':
             param_grid['feature_select__n_features_to_select'] = hyperparameter_ranges['n_features_to_select']
         elif feature_selection_method == 'RFECV(LogisticRegression, scoring=prof_score)':
@@ -471,8 +464,8 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
       #             report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
        #            report["accuracy"])
         
-        accuracy = report['accuracy']
-        st.session_state['model_accuracy'] = accuracy
+        F1score = report['True']['f1-score']
+        st.session_state['model_F1score'] = F1score
     
 
         classification_report_str = f"""
@@ -555,28 +548,31 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     
     # Function to save model results and selections
     def run_model():
+        user_name = st.session_state.get('user_name', 'Anonymous')
         model_name = st.session_state.get('selected_model', 'Default Model')
-        feature_select_method = st.session_state.get('selected_feature_selection', 'Default Selection')
-        feature_create_method = st.session_state.get('selected_feature_creation', 'Default Creation')
-        accuracy = st.session_state.get('model_accuracy', 0)  # Placeholder for where you calculate accuracy
-
         numerical_features = ', '.join(st.session_state.get('selected_num_features', []))
         categorical_features = ', '.join(st.session_state.get('selected_cat_features', [])) 
-
+        feature_select_method = st.session_state.get('selected_feature_selection', 'Default Selection')
+        feature_create_method = st.session_state.get('selected_feature_creation', 'Default Creation')
+        F1score = st.session_state.get('model_F1score', 0)  # Placeholder for where you calculate accuracy
+        
         new_entry = pd.DataFrame([{
+            'User Name': user_name,
             'Model Name': model_name,
             'Numerical Features': numerical_features,
             'Categorical Features': categorical_features,
             'Feature Selection Method': feature_select_method,
             'Feature Creation Method': feature_create_method,
-            'Accuracy': accuracy
+            'F1-score': F1score
         }])
 
         if 'leaderboard' not in st.session_state:
             st.session_state['leaderboard'] = pd.DataFrame(columns=list(new_entry.keys()))
     
         st.session_state['leaderboard'] = pd.concat([st.session_state['leaderboard'], new_entry], ignore_index=True)
-        st.session_state['leaderboard'].to_csv('leaderboard.csv', index=False)
+        st.session_state['leaderboard'] = st.session_state['leaderboard'].sort_values(by='F1-score', ascending=False)
+        print("Saving data to CSV", st.session_state['leaderboard'])
+        st.session_state['leaderboard'].to_csv('leaderboard.csv', index_label='Rank')
         st.success('Model results saved to leaderboard.')
         
     if st.button('Done'):
@@ -586,10 +582,14 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
 
 elif st.session_state['current_section'] == 'Leaderboard':
 
-    st.title("Leaderboard")
+    st.markdown("<h1 style='text-align: center;'>Leaderboard</h1>", unsafe_allow_html=True)
+    st.header("Compare your model to previous ones ranked by their performance")
     
     if 'leaderboard' in st.session_state and not st.session_state.leaderboard.empty:
-        st.dataframe(st.session_state.leaderboard)
+        sorted_leaderboard = st.session_state['leaderboard'].sort_values(by='F1-score', ascending=False)
+        sorted_leaderboard.index += 1  # Optional: Start index at 1 instead of 0
+        st.session_state['leaderboard'] = sorted_leaderboard
+        st.dataframe(st.session_state['leaderboard'])
     else:
         st.write("No leaderboard data available.")
     
