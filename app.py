@@ -59,7 +59,7 @@ from scipy.sparse import csr_matrix #delete later, replace with effective spare 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 
-
+import os
 
 
 ################################ formatting #############################
@@ -288,7 +288,6 @@ if st.session_state['current_section'] == 'Overview':
 
 ################################################### custom model builder ########################################################
 
-
 elif st.session_state['current_section'] == 'Custom Model Builder':
 
     # begin : user choices
@@ -296,24 +295,22 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     # num_pipe_features =  .... st.menu(list of choices or something);
     
     # Checkbox to select numerical features
-    selected_num_features = st.multiselect("Select Numerical Features:", num_pipe_features)
+    selected_num_features = st.multiselect("Select Numerical Features:", num_pipe_features, key='selected_num_features')
     
     # Checkbox to select categorical features
-    selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features)
+    selected_cat_features = st.multiselect("Select Categorical Features:", cat_pipe_features, key='selected_cat_features')
         
     # Dropdown menu to choose the model
-    model_name = st.selectbox("Choose Model:", ['Logistic Regression', 'Linear SVC', 'K-Nearest Neighbors', 'Decision Tree'])
+    model_options = ['Logistic Regression', 'Linear SVC', 'K-Nearest Neighbors', 'Decision Tree']
+    model_name = st.selectbox("Choose Model:", model_options, key='selected_model')
 
     # Dropdown menu to choose the feature selection method
-    feature_select_method = st.selectbox("Choose Feature Selection Method:", ['passthrough', 'PCA',
-                                                                                 'SelectKBest(f_classif)',
-                                                                                 'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))',
-                                                                                 
-                                                                                 'RFECV(LogisticRegression, scoring=prof_score)',
-                                                                                 'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',])
+    feature_select_options = ['passthrough', 'PCA', 'SelectKBest(f_classif)', 'SelectFromModel(LassoCV())', 'SelectFromModel(LinearSVC(penalty="l1", dual=False))', 'RFECV(LogisticRegression, scoring=prof_score)', 'SequentialFeatureSelector(LogisticRegression, scoring=prof_score)',]
+    feature_select_method = st.selectbox("Choose Feature Selection Method:", feature_select_options, key='selected_feature_selection')
     
     # Dropdown menu to choose the feature creation method
-    feature_create_method = st.selectbox("Choose Feature Creation Method:", ['passthrough', 'PolynomialFeatures', 'MinMaxScaler', 'MaxAbsScaler'])
+    feature_create_options = ['passthrough', 'PolynomialFeatures', 'MinMaxScaler', 'MaxAbsScaler']
+    feature_create_method = st.selectbox("Choose Feature Creation Method:", feature_create_options, key='selected_feature_creation')
     
     # If PolynomialFeatures is selected, provide an input field to specify the degree
     if feature_create_method == 'PolynomialFeatures':
@@ -464,7 +461,9 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
       #             report["True"]["precision"], report["True"]["recall"], report["True"]["f1-score"], report["True"]["support"],
        #            report["accuracy"])
         
-      #  st.markdown(report['accuracy'])
+        accuracy = report['accuracy']
+        st.session_state['model_accuracy'] = accuracy
+    
 
         classification_report_str = f"""
         <div style="text-align: center; width: 100%;">
@@ -541,12 +540,49 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         st.pyplot(confusion_matrix_chart.figure_)
 
 
+
+
+    
+    # Function to save model results and selections
+    def run_model():
+        model_name = st.session_state.get('selected_model', 'Default Model')
+        feature_select_method = st.session_state.get('selected_feature_selection', 'Default Selection')
+        feature_create_method = st.session_state.get('selected_feature_creation', 'Default Creation')
+        accuracy = st.session_state.get('model_accuracy', 0)  # Placeholder for where you calculate accuracy
+
+        numerical_features = ', '.join(st.session_state.get('selected_num_features', []))
+        categorical_features = ', '.join(st.session_state.get('selected_cat_features', [])) 
+
+        new_entry = pd.DataFrame([{
+            'Model Name': model_name,
+            'Numerical Features': numerical_features,
+            'Categorical Features': categorical_features,
+            'Feature Selection Method': feature_select_method,
+            'Feature Creation Method': feature_create_method,
+            'Accuracy': accuracy
+        }])
+
+        if 'leaderboard' not in st.session_state:
+            st.session_state['leaderboard'] = pd.DataFrame(columns=list(new_entry.keys()))
+    
+        st.session_state['leaderboard'] = pd.concat([st.session_state['leaderboard'], new_entry], ignore_index=True)
+        st.session_state['leaderboard'].to_csv('leaderboard.csv', index=False)
+        st.success('Model results saved to leaderboard.')
+        
+    if st.button('Done'):
+        run_model()
+
 ################################################### Leaderboard ########################################################
 
 elif st.session_state['current_section'] == 'Leaderboard':
+
     st.title("Leaderboard")
     st.header("Hopefully this isn't too hard because it will probably be the last thing we do")
-
+    
+    if 'leaderboard' in st.session_state and not st.session_state['leaderboard'].empty:
+        st.dataframe(st.session_state['leaderboard'])
+    else:
+        st.write("No leaderboard data available.")
 ################################################### Dictionary ########################################################
 
 elif st.session_state['current_section'] == 'Dictionary':
