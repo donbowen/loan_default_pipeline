@@ -300,7 +300,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     st.markdown("<h1 style='text-align: center;'>Build Your Own Custom Model</h1>", unsafe_allow_html=True)
     # num_pipe_features =  .... st.menu(list of choices or something);
 
-    user_name = st.text_input("Enter your name", key='user_name')
+    user_name = st.text_input("Enter Your Name:", key='user_name')
     # Checkbox to select numerical features
 
     
