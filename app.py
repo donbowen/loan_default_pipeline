@@ -409,6 +409,10 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
     
     
     # Update parameter grid with new hyperparameter ranges
+    print("CHECK CHECK:")
+    print(feature_select_method)
+    print(model_name) 
+    print(hyperparameter_ranges)
     param_grid = construct_param_grid(feature_select_method, model_name, hyperparameter_ranges)
 
     st.write(param_grid)
