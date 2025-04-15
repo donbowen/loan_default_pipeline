@@ -363,7 +363,7 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
         step_max = st.slider('RFECV Step - Max Value', min_value=1, max_value=10, value=5)
         hyperparameter_ranges['step'] = np.arange(step_min, step_max + 1)
     else:
-        hyperparameter_ranges = None
+        pass
     
     # Create the pipeline based on the selected model and features
     pipe = create_pipeline(model_name, feature_select_method, feature_create_method, selected_num_features, selected_cat_features, degree)
