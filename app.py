@@ -93,7 +93,11 @@ with st.sidebar:
 loans = pd.read_csv("inputs/final_2013_subsample.csv")
 
 # Drop unnecessary columns
-loans = loans.drop(["id", "member_id", "desc", "earliest_cr_line", "emp_title", "issue_d"], axis=1)
+for c in ["id", "member_id", "desc", "earliest_cr_line", "emp_title", "issue_d"]:
+    try:
+        loans = loans.drop(c, axis=1)
+    except:
+        pass
 
 # create target variable and drop from features
 y = loans.loan_status == "Charged Off"
