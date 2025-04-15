@@ -633,25 +633,32 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
                     st.subheader("Classification Report")
                     report = classification_report(y_test, y_pred_test, output_dict=True)
                     
+                    # Get the actual class labels from the report
+                    class_labels = [key for key in report.keys() if key not in ['accuracy', 'macro avg', 'weighted avg']]
+                    
                     # Create a styled table for the classification report
-                    report_df = pd.DataFrame({
-                        "Precision": [report["0"]["precision"], report["1"]["precision"]],
-                        "Recall": [report["0"]["recall"], report["1"]["recall"]],
-                        "F1-Score": [report["0"]["f1-score"], report["1"]["f1-score"]],
-                        "Support": [report["0"]["support"], report["1"]["support"]]
-                    }, index=["Non-Default", "Default"])
-                    
-                    # Add accuracy row
-                    accuracy_df = pd.DataFrame({
-                        "Precision": [np.nan],
-                        "Recall": [np.nan],
-                        "F1-Score": [report["accuracy"]],
-                        "Support": [report["0"]["support"] + report["1"]["support"]]
-                    }, index=["Accuracy"])
-                    
-                    report_df = pd.concat([report_df, accuracy_df])
-                    st.table(report_df)
-                    
+                    if len(class_labels) == 2:
+                        report_df = pd.DataFrame({
+                            "Precision": [report[class_labels[0]]["precision"], report[class_labels[1]]["precision"]],
+                            "Recall": [report[class_labels[0]]["recall"], report[class_labels[1]]["recall"]],
+                            "F1-Score": [report[class_labels[0]]["f1-score"], report[class_labels[1]]["f1-score"]],
+                            "Support": [report[class_labels[0]]["support"], report[class_labels[1]]["support"]]
+                        }, index=["Non-Default", "Default"])
+                        
+                        # Add accuracy row
+                        accuracy_df = pd.DataFrame({
+                            "Precision": [np.nan],
+                            "Recall": [np.nan],
+                            "F1-Score": [report["accuracy"]],
+                            "Support": [report[class_labels[0]]["support"] + report[class_labels[1]]["support"]]
+                        }, index=["Accuracy"])
+                        
+                        report_df = pd.concat([report_df, accuracy_df])
+                        st.table(report_df)
+                    else:
+                        # If there aren't exactly 2 classes, just display the raw report
+                        st.write(report)
+
                     # Feature importance analysis
                     st.subheader("Feature Importance Analysis")
                     
@@ -669,83 +676,133 @@ elif st.session_state['current_section'] == 'Custom Model Builder':
                             
                             # Extract coefficients
                             if hasattr(results.best_estimator_[-1].estimator, 'coef_'):
-                                coefs = results.best_estimator_[-1].estimator.coef_[0]
+                                # Handle both 1D and 2D coefficient arrays
+                                coefs = results.best_estimator_[-1].estimator.coef_
+                                if coefs.ndim > 1:
+                                    coefs = coefs[0]  # Take first row for binary classification
                                 
                                 # Create DataFrame for coefficients
                                 coef_df = pd.DataFrame({'Feature': feature_names, 'Coefficient': coefs})
                                 coef_df = coef_df.sort_values('Coefficient', ascending=False)
                                 
                                 # Plot feature importance
-                                fig, ax = plt.subplots(figsize=(10, 8))
-                                plt.barh(coef_df['Feature'].head(15), coef_df['Coefficient'].head(15), color='skyblue')
-                                plt.xlabel('Coefficient Value')
-                                plt.ylabel('Feature')
-                                plt.title('Top 15 Feature Importances')
-                                plt.tight_layout()
-                                st.pyplot(fig)
-                                
-                                # Show coefficient table
-                                st.write("**Feature Coefficients:**")
-                                st.dataframe(coef_df.head(20))
+                                if len(coef_df) > 0:
+                                    fig, ax = plt.subplots(figsize=(10, 8))
+                                    top_n = min(15, len(coef_df))
+                                    plt.barh(coef_df['Feature'].head(top_n), coef_df['Coefficient'].head(top_n), color='skyblue')
+                                    plt.xlabel('Coefficient Value')
+                                    plt.ylabel('Feature')
+                                    plt.title(f'Top {top_n} Feature Importances')
+                                    plt.tight_layout()
+                                    st.pyplot(fig)
+                                    
+                                    # Show coefficient table
+                                    st.write("**Feature Coefficients:**")
+                                    st.dataframe(coef_df.head(20))
+                                else:
+                                    st.info("No features with non-zero coefficients found.")
                         else:
                             st.info("Feature importance visualization is only available for linear models.")
                     except Exception as e:
                         st.warning(f"Could not extract feature importances: {str(e)}")
                     
-                    # Confusion matrix
+                    # Fix for confusion matrix display
                     st.subheader("Confusion Matrix")
                     cm = confusion_matrix(y_test, y_pred_test)
-                    cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Non-Default", "Default"])
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    cm_display.plot(ax=ax, cmap='Blues', values_format='d')
-                    plt.title('Confusion Matrix on Test Data')
-                    st.pyplot(fig)
-                    
+                    class_labels = ["Non-Default", "Default"]
+                    try:
+                        cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_labels)
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        cm_display.plot(ax=ax, cmap='Blues', values_format='d')
+                        plt.title('Confusion Matrix on Test Data')
+                        st.pyplot(fig)
+                    except Exception as e:
+                        # Fallback display if ConfusionMatrixDisplay fails
+                        st.write("Confusion Matrix:")
+                        st.write(pd.DataFrame(cm, index=class_labels, columns=class_labels))
+                        st.warning(f"Could not display confusion matrix plot: {str(e)}")
+                        
                     # Profit analysis
                     st.subheader("Profitability Analysis")
                     
-                    # Calculate profit metrics
-                    TN = sum((y_pred_test == 0) & (y_test == 0))  # Correctly predicted non-defaults
-                    FN = sum((y_pred_test == 0) & (y_test == 1))  # Defaults incorrectly predicted as non-defaults
-                    TP = sum((y_pred_test == 1) & (y_test == 1))  # Correctly predicted defaults
-                    FP = sum((y_pred_test == 1) & (y_test == 0))  # Non-defaults incorrectly predicted as defaults
+                    # Calculate profit metrics (safely convert to numpy arrays first)
+                    y_test_arr = np.array(y_test)
+                    y_pred_test_arr = np.array(y_pred_test)
+                    
+                    # Ensure both arrays have consistent types
+                    y_test_arr = y_test_arr.astype(bool)
+                    y_pred_test_arr = y_pred_test_arr.astype(bool)
+                    
+                    # Calculate confusion matrix values
+                    TN = np.sum((~y_pred_test_arr) & (~y_test_arr))  # Correctly predicted non-defaults
+                    FN = np.sum((~y_pred_test_arr) & (y_test_arr))   # Defaults incorrectly predicted as non-defaults
+                    TP = np.sum((y_pred_test_arr) & (y_test_arr))    # Correctly predicted defaults
+                    FP = np.sum((y_pred_test_arr) & (~y_test_arr))   # Non-defaults incorrectly predicted as defaults
                     
                     # Create profit metrics
                     profit_metrics = {
-                        "ROA on Correct Non-Defaults (TN)": TN * 0.02,
-                        "Loss on Missed Defaults (FN)": FN * 0.20,
-                        "Net Profit": TN * 0.02 - FN * 0.20,
-                        "Opportunity Cost (FP)": FP * 0.02,  # Revenue missed by rejecting good loans
+                        "ROA on Correct Non-Defaults (TN)": float(TN * 0.02),
+                        "Loss on Missed Defaults (FN)": float(FN * 0.20),
+                        "Net Profit": float(TN * 0.02 - FN * 0.20),
+                        "Opportunity Cost (FP)": float(FP * 0.02),  # Revenue missed by rejecting good loans
                     }
                     
                     # Create profit metrics DataFrame
                     profit_df = pd.DataFrame({
-                        "Metric": profit_metrics.keys(),
-                        "Value": profit_metrics.values()
+                        "Metric": list(profit_metrics.keys()),
+                        "Value": list(profit_metrics.values())
                     })
+                    
+                    # Add descriptions
+                    descriptions = [
+                        "Revenue from loans correctly predicted to be paid back",
+                        "Loss from loans incorrectly predicted to be paid back",
+                        "Overall profit (ROA - Loss)",
+                        "Potential revenue lost by rejecting loans that would have been paid back"
+                    ]
+                    
+                    profit_df["Description"] = descriptions
                     
                     # Display profit metrics
                     st.table(profit_df)
                     
-                    # Precision-Recall curve
-                    st.subheader("Precision-Recall Curve")
+                    # Add a visual representation of the profit components
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    colors = ['green', 'red', 'blue', 'orange']
+                    bars = ax.bar(profit_df['Metric'], profit_df['Value'], color=colors)
                     
-                    # Check if the model has predict_proba or decision_function
-                    if hasattr(results.best_estimator_, 'predict_proba'):
-                        y_scores = results.best_estimator_.predict_proba(X_test)[:,1]
-                    elif hasattr(results.best_estimator_, 'decision_function'):
-                        y_scores = results.best_estimator_.decision_function(X_test)
+                    # Add a horizontal line at y=0
+                    ax.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
+                    
+                    # Add value labels on the bars
+                    for bar in bars:
+                        height = bar.get_height()
+                        if height < 0:
+                            ax.text(bar.get_x() + bar.get_width()/2., height - 2, f'{height:.2f}',
+                                    ha='center', va='top', color='white')
+                        else:
+                            ax.text(bar.get_x() + bar.get_width()/2., height + 0.5, f'{height:.2f}',
+                                    ha='center', va='bottom')
+                    
+                    plt.title('Profit Components')
+                    plt.xticks(rotation=45, ha='right')
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    
+                    # Add ROI calculation
+                    if y_pred_test_arr.sum() > 0:  # Avoid division by zero
+                        accepted_loans = TN + FN
+                        defaulted_loans = FN
+                        default_rate = FN / accepted_loans if accepted_loans > 0 else 0
+                        
+                        st.write(f"""
+                        **Key Business Metrics:**
+                        - Default Rate: {default_rate:.2%} ({FN} defaults out of {accepted_loans} accepted loans)
+                        - Return on Investment: {(TN * 0.02 - FN * 0.20) / accepted_loans:.2%} per accepted loan
+                        """)
                     else:
-                        y_scores = None
-                    
-                    if y_scores is not None:
-                        # Plot precision-recall curve
-                        precision, recall, thresholds = precision_recall_curve(y_test, y_scores)
-                        pr_display = PrecisionRecallDisplay(precision=precision, recall=recall)
-                        fig, ax = plt.subplots(figsize=(8, 6))
-                        pr_display.plot(ax=ax)
-                        plt.title('Precision-Recall Curve')
-                        st.pyplot(fig)
+                        st.write("No loans were accepted by the model, so ROI cannot be calculated.")
+
                         
                 except Exception as e:
                     st.error(f"An error occurred during model training: {str(e)}")
